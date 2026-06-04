@@ -46,7 +46,10 @@ jobs:
         run: go install golang.org/x/vuln/cmd/govulncheck@latest && govulncheck ./... || echo "govulncheck found issues (non-blocking for now)"
 
       - name: Build (with stub frontend)
+        working-directory: .
         run: |
+          echo "pwd=$(pwd) GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          ls -la cmd/grokpi || (ls -la .; exit 1)
           mkdir -p bin
           go build -o bin/grokpi ./cmd/grokpi
           ./bin/grokpi -version || true
