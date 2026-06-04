@@ -133,7 +133,7 @@ sudo apt-get install -y nodejs
 6. Install Go (match project requirement from `go.mod`, currently 1.24.1+):
 
 ```bash
-GO_VERSION="1.24.1"
+GO_VERSION="1.24.13"
 curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz
 sudo rm -rf /usr/local/go
 sudo tar -C /usr/local -xzf /tmp/go.tar.gz
@@ -204,7 +204,7 @@ sudo apt-get install -y nodejs
 6. Install Go (match project requirement from `go.mod`, currently 1.24.1+):
 
 ```bash
-GO_VERSION="1.24.1"
+GO_VERSION="1.24.13"
 curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz
 sudo rm -rf /usr/local/go
 sudo tar -C /usr/local -xzf /tmp/go.tar.gz
