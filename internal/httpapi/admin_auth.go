@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/config"
 )
 
 const adminCookieName = "gf_session"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/crmmc/grokpi/internal/flow"
+	"github.com/javaswahid/grokpi/internal/flow"
 )
 
 func extractChatPromptAndImages(ctx context.Context, messages []ChatMessage) (string, [][]byte, error) {

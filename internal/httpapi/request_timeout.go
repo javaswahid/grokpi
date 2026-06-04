@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/config"
 )
 
 const defaultRequestTimeout = 60 * time.Second

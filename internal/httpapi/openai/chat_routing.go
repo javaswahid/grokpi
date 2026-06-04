@@ -10,8 +10,8 @@ import (
 
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
-	"github.com/crmmc/grokpi/internal/flow"
-	"github.com/crmmc/grokpi/internal/httpapi"
+	"github.com/javaswahid/grokpi/internal/flow"
+	"github.com/javaswahid/grokpi/internal/httpapi"
 )
 
 // buildFileURL constructs a full URL for a cached file based on the request.

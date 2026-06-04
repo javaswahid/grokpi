@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/crmmc/grokpi/internal/cache"
+	"github.com/javaswahid/grokpi/internal/cache"
 )
 
 func TestServer_AdminRoutesRequireAppKey(t *testing.T) {

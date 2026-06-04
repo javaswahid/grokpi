@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/store"
-	tokenPkg "github.com/crmmc/grokpi/internal/token"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/store"
+	tokenPkg "github.com/javaswahid/grokpi/internal/token"
 	"github.com/go-chi/chi/v5"
 )
 

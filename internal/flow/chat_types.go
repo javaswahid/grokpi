@@ -3,10 +3,10 @@ package flow
 import (
 	"context"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/store"
-	tkn "github.com/crmmc/grokpi/internal/token"
-	"github.com/crmmc/grokpi/internal/xai"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/store"
+	tkn "github.com/javaswahid/grokpi/internal/token"
+	"github.com/javaswahid/grokpi/internal/xai"
 )
 
 // flowCtxKey is a context key type for flow-layer values.

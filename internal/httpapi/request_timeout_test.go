@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/flow"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/flow"
 )
 
 func TestRouteTimeout(t *testing.T) {

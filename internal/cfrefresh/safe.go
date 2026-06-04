@@ -1,6 +1,6 @@
 package cfrefresh
 
-import "github.com/crmmc/grokpi/internal/logging"
+import "github.com/javaswahid/grokpi/internal/logging"
 
 func safeGo(name string, fn func()) {
 	go func() {

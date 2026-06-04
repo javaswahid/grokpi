@@ -5,9 +5,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/logging"
-	"github.com/crmmc/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/logging"
+	"github.com/javaswahid/grokpi/internal/store"
 )
 
 const (

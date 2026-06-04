@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/store"
-	tokenpkg "github.com/crmmc/grokpi/internal/token"
+	"github.com/javaswahid/grokpi/internal/store"
+	tokenpkg "github.com/javaswahid/grokpi/internal/token"
 	"github.com/go-chi/chi/v5"
 )
 

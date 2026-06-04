@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/store"
 )
 
 // HourlyUsage represents usage count for a specific hour and endpoint.

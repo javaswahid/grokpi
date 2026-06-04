@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/crmmc/grokpi/internal/cache"
+	"github.com/javaswahid/grokpi/internal/cache"
 )
 
 // handleCacheStats returns cache statistics for image and video types.

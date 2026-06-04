@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/crmmc/grokpi/internal/xai"
+	"github.com/javaswahid/grokpi/internal/xai"
 )
 
 func (f *ChatFlow) buildXAIRequest(ctx context.Context, req *ChatRequest, client xai.Client) (*xai.ChatRequest, error) {

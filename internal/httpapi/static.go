@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/crmmc/grokpi/web"
+	"github.com/javaswahid/grokpi/web"
 )
 
 // SPAHandler serves the embedded frontend with SPA fallback.

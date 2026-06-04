@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/config"
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

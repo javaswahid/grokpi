@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/xai"
+	"github.com/javaswahid/grokpi/internal/xai"
 )
 
 func (f *ChatFlow) streamEvents(ctx context.Context, eventCh <-chan xai.StreamEvent, outCh chan<- StreamEvent, dl DownloadFunc, tools []Tool) (bool, *Usage, bool, time.Duration, error) {

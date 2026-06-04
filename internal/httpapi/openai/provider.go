@@ -6,9 +6,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/crmmc/grokpi/internal/flow"
-	"github.com/crmmc/grokpi/internal/httpapi"
-	"github.com/crmmc/grokpi/internal/token"
+	"github.com/javaswahid/grokpi/internal/flow"
+	"github.com/javaswahid/grokpi/internal/httpapi"
+	"github.com/javaswahid/grokpi/internal/token"
 )
 
 // SetupRoutes registers OpenAI-compatible API endpoints on the given router.

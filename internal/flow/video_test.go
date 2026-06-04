@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/store"
-	"github.com/crmmc/grokpi/internal/xai"
+	"github.com/javaswahid/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/xai"
 )
 
 // mockVideoClient simulates xai video API calls.

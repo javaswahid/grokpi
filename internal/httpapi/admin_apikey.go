@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/store"
 	"github.com/go-chi/chi/v5"
 )
 

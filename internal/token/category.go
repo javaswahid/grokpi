@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/store"
 )
 
 // QuotaCategory represents a quota consumption category.

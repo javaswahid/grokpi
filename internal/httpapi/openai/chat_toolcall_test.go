@@ -3,7 +3,7 @@ package openai
 import (
 	"testing"
 
-	"github.com/crmmc/grokpi/internal/flow"
+	"github.com/javaswahid/grokpi/internal/flow"
 )
 
 func TestToolCallStreamParser_InvalidBlockFallsBackToText(t *testing.T) {

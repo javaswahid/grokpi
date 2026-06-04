@@ -15,9 +15,9 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"gorm.io/gorm"
 
-	"github.com/crmmc/grokpi/internal/flow"
-	"github.com/crmmc/grokpi/internal/httpapi"
-	"github.com/crmmc/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/flow"
+	"github.com/javaswahid/grokpi/internal/httpapi"
+	"github.com/javaswahid/grokpi/internal/store"
 )
 
 const (

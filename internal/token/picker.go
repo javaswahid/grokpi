@@ -3,8 +3,8 @@ package token
 import (
 	"errors"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/store"
 )
 
 // ErrModelNotFound is returned when the model is not in any configured group.

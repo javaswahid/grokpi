@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/crmmc/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/config"
 )
 
 func TestBodySizeLimitMiddleware_NormalRequest(t *testing.T) {

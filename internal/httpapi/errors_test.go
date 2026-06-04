@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/crmmc/grokpi/internal/token"
-	"github.com/crmmc/grokpi/internal/xai"
+	"github.com/javaswahid/grokpi/internal/token"
+	"github.com/javaswahid/grokpi/internal/xai"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/store"
-	"github.com/crmmc/grokpi/internal/token"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/token"
 	"github.com/go-chi/chi/v5"
 )
 

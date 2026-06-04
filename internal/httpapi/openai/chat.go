@@ -1,6 +1,6 @@
 package openai
 
-import "github.com/crmmc/grokpi/internal/flow"
+import "github.com/javaswahid/grokpi/internal/flow"
 
 // ChatRequest represents an OpenAI-compatible chat completion request.
 type ChatRequest struct {

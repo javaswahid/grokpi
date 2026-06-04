@@ -3,7 +3,7 @@ package openai
 import (
 	"strings"
 
-	"github.com/crmmc/grokpi/internal/flow"
+	"github.com/javaswahid/grokpi/internal/flow"
 )
 
 const (

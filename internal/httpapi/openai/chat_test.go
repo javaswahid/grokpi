@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/flow"
-	"github.com/crmmc/grokpi/internal/httpapi"
-	"github.com/crmmc/grokpi/internal/store"
-	tkn "github.com/crmmc/grokpi/internal/token"
-	"github.com/crmmc/grokpi/internal/xai"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/flow"
+	"github.com/javaswahid/grokpi/internal/httpapi"
+	"github.com/javaswahid/grokpi/internal/store"
+	tkn "github.com/javaswahid/grokpi/internal/token"
+	"github.com/javaswahid/grokpi/internal/xai"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -1,4 +1,4 @@
-module github.com/crmmc/grokpi
+module github.com/javaswahid/grokpi
 
 go 1.24.1
 

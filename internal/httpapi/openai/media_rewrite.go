@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/crmmc/grokpi/internal/flow"
+	"github.com/javaswahid/grokpi/internal/flow"
 )
 
 // xaiImagePathRe matches markdown images with xAI relative paths like:

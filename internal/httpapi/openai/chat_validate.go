@@ -4,8 +4,8 @@ import (
 	"encoding/base64"
 	"strings"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/flow"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/flow"
 )
 
 const (

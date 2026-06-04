@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/httpapi"
+	"github.com/javaswahid/grokpi/internal/httpapi"
 )
 
 const (

@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/crmmc/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/config"
 )
 
 // TestAdminAPI_IntegrationFlow tests the full admin API flow:

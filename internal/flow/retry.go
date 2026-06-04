@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	tkn "github.com/crmmc/grokpi/internal/token"
-	"github.com/crmmc/grokpi/internal/xai"
+	tkn "github.com/javaswahid/grokpi/internal/token"
+	"github.com/javaswahid/grokpi/internal/xai"
 )
 
 // ErrRetryBudgetExceeded indicates retry time budget has been exhausted.

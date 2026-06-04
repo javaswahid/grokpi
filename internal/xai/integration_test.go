@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/xai"
+	"github.com/javaswahid/grokpi/internal/xai"
 )
 
 // TestClientIntegration_Smoke tests basic client creation and lifecycle.

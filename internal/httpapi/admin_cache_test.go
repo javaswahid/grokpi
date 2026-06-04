@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/crmmc/grokpi/internal/cache"
+	"github.com/javaswahid/grokpi/internal/cache"
 )
 
 func newTestCacheService(t *testing.T) (*cache.Service, string) {

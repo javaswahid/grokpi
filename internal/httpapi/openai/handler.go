@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/flow"
-	"github.com/crmmc/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/flow"
+	"github.com/javaswahid/grokpi/internal/store"
 )
 
 // Handler holds dependencies for OpenAI-compatible API endpoints.

@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/store"
-	"github.com/crmmc/grokpi/internal/token"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/token"
 )
 
 // handlePutConfig returns a handler that updates hot-reloadable config fields.

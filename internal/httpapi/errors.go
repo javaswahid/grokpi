@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/crmmc/grokpi/internal/token"
-	"github.com/crmmc/grokpi/internal/xai"
+	"github.com/javaswahid/grokpi/internal/token"
+	"github.com/javaswahid/grokpi/internal/xai"
 )
 
 // ErrPoolExhausted indicates all tokens in the pool are exhausted or cooling down.

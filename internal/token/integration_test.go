@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/store"
-	"github.com/crmmc/grokpi/internal/token"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/token"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

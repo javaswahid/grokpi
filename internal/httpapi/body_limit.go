@@ -3,7 +3,7 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/crmmc/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/config"
 )
 
 // bodySizeLimitMiddleware wraps r.Body with http.MaxBytesReader based on the route.

@@ -3,7 +3,7 @@ package token
 import (
 	"testing"
 
-	"github.com/crmmc/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/config"
 )
 
 func TestParseModelEntry(t *testing.T) {

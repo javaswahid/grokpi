@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/xai"
+	"github.com/javaswahid/grokpi/internal/xai"
 )
 
 func TestDefaultRetryConfig(t *testing.T) {

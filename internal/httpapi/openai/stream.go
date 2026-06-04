@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/crmmc/grokpi/internal/flow"
-	"github.com/crmmc/grokpi/internal/httpapi"
+	"github.com/javaswahid/grokpi/internal/flow"
+	"github.com/javaswahid/grokpi/internal/httpapi"
 	"github.com/google/uuid"
 )
 

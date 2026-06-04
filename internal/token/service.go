@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/store"
 )
 
 // TokenStore defines the interface for token persistence.

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/store"
-	tokenpkg "github.com/crmmc/grokpi/internal/token"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/store"
+	tokenpkg "github.com/javaswahid/grokpi/internal/token"
 )
 
 // PreflightRequest checks whether a model category has usable token capacity.

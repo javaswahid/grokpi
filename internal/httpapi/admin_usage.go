@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/crmmc/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/store"
 )
 
 // UsageLogStoreForUsage is a focused interface for the system usage and usage logs endpoints.

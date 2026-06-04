@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/crmmc/grokpi/internal/xai"
+	"github.com/javaswahid/grokpi/internal/xai"
 )
 
 func TestIsTransportError(t *testing.T) {

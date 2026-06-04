@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/crmmc/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/store"
 )
 
 func TestHandleSystemStatus_APIKeys(t *testing.T) {

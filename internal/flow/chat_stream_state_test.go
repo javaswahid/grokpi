@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/crmmc/grokpi/internal/store"
-	"github.com/crmmc/grokpi/internal/xai"
+	"github.com/javaswahid/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/xai"
 )
 
 func TestChatFlow_FilterTagsAcrossChunks(t *testing.T) {

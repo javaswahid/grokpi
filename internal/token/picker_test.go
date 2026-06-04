@@ -3,8 +3,8 @@ package token
 import (
 	"testing"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/store"
 )
 
 // testTokenConfig returns a config fixture for picker tests.

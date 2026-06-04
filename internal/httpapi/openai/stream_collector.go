@@ -3,8 +3,8 @@ package openai
 import (
 	"time"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/flow"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/flow"
 )
 
 type chatCompletionResponse struct {

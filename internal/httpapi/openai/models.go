@@ -3,9 +3,9 @@ package openai
 import (
 	"net/http"
 
-	"github.com/crmmc/grokpi/internal/config"
-	"github.com/crmmc/grokpi/internal/httpapi"
-	tkn "github.com/crmmc/grokpi/internal/token"
+	"github.com/javaswahid/grokpi/internal/config"
+	"github.com/javaswahid/grokpi/internal/httpapi"
+	tkn "github.com/javaswahid/grokpi/internal/token"
 )
 
 // ModelsResponse is the OpenAI models list response.
