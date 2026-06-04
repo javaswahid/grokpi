@@ -35,6 +35,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Diagnose checkout
+        run: |
+          echo "After checkout pwd=$(pwd)"
+          ls -la . | head -30
+          ls -la cmd/grokpi || echo "No cmd/grokpi after checkout"
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
