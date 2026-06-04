@@ -55,7 +55,7 @@ Prerequisites: Go 1.24+, Node.js 20+, make (optional).
 
 ```bash
 # 1. Clone
-git clone https://github.com/crmmc/grokpi.git
+git clone https://github.com/javaswahid/grokpi.git
 cd grokpi
 
 # 2. Prepare config (never commit real secrets)

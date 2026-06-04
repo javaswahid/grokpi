@@ -2,7 +2,7 @@
 
 **Date:** 2026-06 (post initial prep)
 **Auditor:** Principal SWE + Staff Backend + DevOps + QA + Security + Tech Writer (Grok AI)
-**Repo:** C:\Users\DELL\Documents\masjavas\grokpi (git master, 2+ commits, remote origin configured to github.com/crmmc/grokpi)
+**Repo:** C:\Users\DELL\Documents\masjavas\grokpi (git master, 2+ commits, remote origin configured to github.com/javaswahid/grokpi)
 
 ## Executive Summary
 
