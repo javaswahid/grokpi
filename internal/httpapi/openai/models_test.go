@@ -22,8 +22,8 @@ func TestNewModelRegistryFromConfig(t *testing.T) {
 
 	// Should contain exactly the models from config
 	allModels := registry.All()
-	if len(allModels) != 4 {
-		t.Errorf("expected 4 models, got %d", len(allModels))
+	if len(allModels) != 5 {
+		t.Errorf("expected 5 models (incl tts), got %d", len(allModels))
 	}
 
 	// Basic models should exist in the registry.
@@ -81,8 +81,8 @@ func TestHandleModels_ReturnsOpenAIFormat(t *testing.T) {
 		t.Errorf("expected object 'list', got %s", resp.Object)
 	}
 
-	if len(resp.Data) != 4 {
-		t.Errorf("expected 4 models, got %d", len(resp.Data))
+	if len(resp.Data) != 5 {
+		t.Errorf("expected 5 models (incl tts), got %d", len(resp.Data))
 	}
 }
 

@@ -110,7 +110,8 @@ func TestServer_NoChatProvider_ReturnsNotImplemented(t *testing.T) {
 
 func TestServer_HealthEndpoints(t *testing.T) {
 	srv := NewServer(&ServerConfig{
-		Version: "test-1.0.0",
+		Version:    "test-1.0.0",
+		TokenStore: &mockTokenStore{},
 	})
 
 	tests := []struct {
