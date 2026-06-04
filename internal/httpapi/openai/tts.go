@@ -150,15 +150,7 @@ func (h *Handler) handleTTS(w http.ResponseWriter, r *http.Request, openAICompat
 	if lastErr != nil {
 		httpapi.WriteError(w, http.StatusBadGateway, "upstream_error", "tts_upstream_failed", "TTS upstream request failed after retries: "+lastErr.Error())
 	}
-
-	if upstreamType := resp.Header.Get("Content-Type"); upstreamType != "" {
-		w.Header().Set("Content-Type", upstreamType)
-	} else {
-		w.Header().Set("Content-Type", contentType)
-	}
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(http.StatusOK)
-	_, _ = io.Copy(w, resp.Body)
+	// Note: on success, headers/body are written inside the retry loop's success handler and we return early.
 }
 
 func buildTTSUpstreamRequest(req speechRequest) (xaiTTSRequest, string, bool) {
