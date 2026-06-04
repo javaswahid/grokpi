@@ -1,15 +1,73 @@
-# Grokpi Self-Hosted Guide
+# Grokpi
 
-Grokpi is an OpenAI-compatible gateway for Grok chat, image, and video workloads.
-This guide is focused on self-hosting on your own server or VPS.
+**OpenAI-compatible self-hosted gateway for Grok (xAI) — chat, image, video, and TTS workloads with advanced token management, Cloudflare bypass, quotas, and an embedded admin UI.**
 
-## 1. What You Get
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.24.1-blue)](go.mod)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black)](web/package.json)
 
-- OpenAI-compatible endpoints (`/v1/models`, `/v1/chat/completions`)
+## Overview
+
+Grokpi lets you run your own production-ready proxy in front of Grok models. It handles token rotation/pooling/quotas/health, automatic Cloudflare challenge solving (via FlareSolverr + browser fingerprinting), usage tracking, rate limiting, and provides a full-featured admin console — all in a single static binary.
+
+Perfect for:
+- Cost control & quota management across many accounts
+- High-availability self-hosting
+- Building apps on top of Grok without direct rate limits
+- Teams that need audit logs, API keys, and video/image generation at scale
+
+## Features
+
+- Full OpenAI Chat Completions, Images, Audio (TTS) compatibility + Grok extensions
+- Async video generation with job polling + cancellation (new)
+- Powerful token pool (basic/super), smart selection, automatic cooling/recovery/health checks
+- Cloudflare auto-refresh + tls-client fingerprinting
+- Embedded Next.js admin UI (tokens, API keys, usage charts, config, cache browser)
+- SQLite (default) or PostgreSQL
+- Structured logging, usage buffering, graceful shutdown
+- Docker + multi-arch releases via GitHub Actions (ghcr.io)
+- Browser extension companion for easy token extraction
+
+## Architecture
+
+```mermaid
+graph TD
+    Client[Client / SDK / App] -->|OpenAI compat + API key| Grokpi[Grokpi :8080]
+    Grokpi -->|Auth + RateLimit + Quota| TokenPool[Token Pool Manager]
+    TokenPool -->|Select + Retry + CF Bypass| XAI[xAI / Grok upstream<br/>via tls-fingerprint + FlareSolverr]
+    Grokpi --> AdminUI[(Embedded Admin UI<br/>Next.js static)]
+    Grokpi --> DB[(SQLite / Postgres<br/>tokens, jobs, usage, apikeys)]
+    Grokpi --> Cache[(Local File Cache<br/>video results)]
+    subgraph "Background"
+      Health[Token Health + Quota Recovery Scheduler]
+      CF[CF Cookie Refresh Scheduler]
+      VideoWorker[Async Video Goroutines + DB state]
+    end
+    Grokpi -.-> Health
+    Grokpi -.-> CF
+    Grokpi -.-> VideoWorker
+```
+
+**Key components:**
+- `internal/token/*` — pool, picker, quota, health, persist
+- `internal/flow/*` — orchestration + retry + streaming for chat/image/video
+- `internal/xai/*` — low-level resilient client
+- `internal/httpapi/openai/*` — OpenAI wire format + admin
+- `web/` — admin frontend (built & embedded)
+
+---
+
+## 1. What You Get (Core)
+
+- OpenAI-compatible endpoints (`/v1/models`, `/v1/chat/completions`, `/v1/audio/speech`, async video)
 - Admin console for token pools, API keys, usage, settings, and cache
 - Single Go binary with embedded web app
 - SQLite by default, optional PostgreSQL
 - Docker Compose deployment support
+- Health: `/health`, `/live`, `/ready`
+- Full async video with cancel + retry (improved)
+
+(The rest of the original detailed VPS guide follows below...)
 
 ## 2. Requirements
 
@@ -340,6 +398,81 @@ docker compose up -d --build
   - Add/enable valid upstream tokens.
 - Port `8080` already used:
   - Stop old container/process or change port mapping.
+
+---
+
+## Environment Variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `GROKPI_TTS_API_KEY` / `XAI_API_KEY` | Server-side key for TTS upstream | (required for TTS) |
+| `GROKPI_TTS_UPSTREAM_URL` | TTS endpoint | `https://api.x.ai/v1/tts` |
+| `GROKPI_TTS_DEFAULT_*` | Voice/language/format fallbacks | eve / auto / mp3 |
+| (others via config.toml or DB overrides) | - | - |
+
+Never put real values in `config.toml` for production (use env + docker secrets or mounted files).
+
+## Running Locally (Development)
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full dev guide.
+
+Quick:
+```bash
+cp config.defaults.toml config.toml   # edit app_key + any proxy/flaresolverr
+go run ./cmd/grokpi
+# or
+make build && ./bin/grokpi
+```
+
+Frontend rapid iteration (separate):
+```bash
+cd web && npm ci && npm run dev
+```
+
+## Docker Usage
+
+```bash
+cp config.defaults.toml config.toml
+mkdir -p data logs
+# chown as needed for container uid 1000
+docker compose up -d --build
+curl http://127.0.0.1:8080/ready
+```
+
+See `docker-compose.yml` (includes optional flaresolverr).
+
+## Health Checks
+
+- `GET /health` — detailed (db/tts/video status etc.)
+- `GET /live` — liveness (K8s)
+- `GET /ready` — readiness (K8s, 503 when not ready)
+
+## Troubleshooting
+
+See original sections 10 + new ones from audit:
+- Video jobs stuck? Use the new `POST .../cancel` and check token video capability in admin.
+- TTS not working? Ensure `GROKPI_TTS_API_KEY` is set in the environment (compose supports it).
+- High memory? Review active video goroutines + token count.
+
+## Deployment
+
+- GitHub releases produce binaries + `ghcr.io/crmmc/grokpi` images on `v*` tags.
+- Recommended: Caddy + automatic HTTPS in front.
+- Backup: `data/` + `config.toml` (or use Postgres for HA).
+- Monitor: `/ready`, logs, token health in admin.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security first: never commit secrets.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+---
+
+**Full original self-hosting + VPS guide content preserved above for continuity.**
+*This README was modernized (added Overview, Features, Architecture diagram, Env, Health, etc.) as part of the release mission.*
 
 ---
 

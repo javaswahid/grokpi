@@ -1,494 +1,278 @@
-# MasantoID API Reference
+# Grokpi API Reference (OpenAI Compatible + Extensions)
 
-Dokumen ini merangkum API yang relevan untuk frontend Studio (Prompt Lab, Image, Video, dan TTS) berdasarkan implementasi server saat ini.
+Grokpi is a self-hosted OpenAI-compatible gateway/proxy for Grok models (chat, image, video, TTS) with advanced token pooling, quotas, Cloudflare bypass, admin UI, and async job support.
 
-## 1. Base URL dan Auth
+**Base URL (local default):** `http://127.0.0.1:8080`
 
-| Item | Nilai |
-| --- | --- |
-| Base URL lokal | `http://127.0.0.1:8080` |
-| Health endpoint | `GET /health` atau `GET /healthz` (tanpa auth) |
-| API endpoint utama | Prefix `/v1/*` |
-| Auth untuk `/v1/*` | Header `Authorization: Bearer <API_KEY>` |
-| Error auth umum | `401 invalid_api_key`, `429 rate_limit_exceeded`, `429 daily_limit_exceeded` |
+**Auth:**
+- Public (no auth): `/health*`, `/live`, `/ready`, `/api/files/*`
+- User API: `Authorization: Bearer <YOUR_API_KEY>` for all `/v1/*`
+- Admin: `Authorization: Bearer <APP_KEY>` (from `config.toml` `[app] app_key`) for `/admin/*` and login
 
-Contoh header:
-
-```http
-Authorization: Bearer gf-xxxxxxxxxxxxxxxx
-Content-Type: application/json
+**Error format (consistent):**
+```json
+{
+  "error": {
+    "code": "invalid_api_key",
+    "message": "Invalid API key",
+    "type": "invalid_request_error"
+  }
+}
 ```
 
-## 2. Endpoint Ringkas
+Common status codes: 200/201/202, 400, 401, 403, 404, 409, 429, 500, 502, 503.
 
-| Method | Path | Auth | Fungsi |
-| --- | --- | --- | --- |
-| GET | `/health` | Tidak | Cek status server |
-| GET | `/v1/models` | API key | Ambil model yang tersedia untuk key tersebut |
-| POST | `/v1/chat/completions` | API key | Chat, image generate/edit, video generate (tergantung model) |
-| POST | `/v1/video/generations` | API key | Submit async video generation job |
-| GET | `/v1/video/generations/{jobId}` | API key | Cek status async video generation |
-| GET | `/v1/video/generations/{jobId}/result` | API key | Ambil metadata hasil async video generation |
-| POST | `/v1/audio/speech` | API key | Text-to-Speech MP3/WAV kompatibel OpenAI |
-| POST | `/audio/speech` | API key | Alias root untuk capability probe TTS |
-| POST | `/v1/tts` | API key | Proxy payload native xAI TTS |
-| GET | `/api/files/video/{name}` | Tidak | Ambil file video cache dari URL hasil generate |
+---
 
-Catatan:
-- `/v1/chat/completions` tetap mendukung image/video untuk kompatibilitas OpenAI-style.
-- Untuk workflow produksi video long-running, gunakan endpoint async `/v1/video/generations` agar client tidak menunggu blocking request sampai video selesai.
-- URL video hasil generate biasanya sudah dalam bentuk URL absolut ke `/api/files/video/{name}`.
+## Health & Ops Endpoints (No Auth)
 
-## 3. Model Yang Tersedia (Live Saat Ini)
+### GET /health (or /healthz)
+Detailed health. Returns 200 even if some services degraded.
 
-Berikut hasil `GET /v1/models` pada environment ini saat dokumen dibuat:
-
-| Model ID | Kategori |
-| --- | --- |
-| `grok-3` | Chat |
-| `grok-3-mini` | Chat |
-| `grok-3-thinking` | Chat |
-| `grok-4` | Chat |
-| `grok-4-mini` | Chat |
-| `grok-4-thinking` | Chat |
-| `grok-4-heavy` | Chat |
-| `grok-4.1-fast` | Chat |
-| `grok-4.1-mini` | Chat |
-| `grok-4.1-thinking` | Chat |
-| `grok-4.1-expert` | Chat |
-| `grok-4.20-beta` | Chat |
-| `grok-imagine-1.0` | Image generate |
-| `grok-imagine-1.0-fast` | Image generate (fast defaults) |
-| `grok-imagine-1.0-edit` | Image edit |
-| `grok-imagine-1.0-video` | Video generate |
-| `grok-tts` | Text-to-Speech |
-
-Catatan penting:
-- Daftar ini dinamis mengikuti konfigurasi `token.basic_models` dan `token.super_models`.
-- Jika API key punya `model_whitelist`, hasil akhirnya bisa lebih sedikit.
-
-## 4. GET /v1/models
-
-### Request
-
-```http
-GET /v1/models HTTP/1.1
-Authorization: Bearer gf-xxxxxxxxxxxxxxxx
+**Response 200:**
+```json
+{
+  "status": "healthy",
+  "version": "dev",
+  "uptime": "1h2m3s",
+  "timestamp": "2026-06-04T10:00:00Z",
+  "database": "ok",
+  "queue": "ok",
+  "storage": "ok",
+  "tts": "ok",
+  "video": "ok"
+}
 ```
 
-### Response sukses
+**cURL:**
+```bash
+curl -s http://127.0.0.1:8080/health | jq
+```
 
+### GET /live
+Liveness probe (process alive?).
+
+**Response 200:** `{"status":"alive","uptime":"...","timestamp":"..."}`
+
+Use for Kubernetes livenessProbe.
+
+### GET /ready
+Readiness probe (can accept traffic?).
+
+Returns 200 if ready, 503 if not (with `checks` map).
+
+**Example response (ready):**
+```json
+{
+  "status": "ready",
+  "timestamp": "...",
+  "checks": { "database": "ok", "config": "ok", "token": "ok", "video": "ok" }
+}
+```
+
+**cURL (expect 200 or 503):**
+```bash
+curl -s -w "%{http_code}" http://127.0.0.1:8080/ready
+```
+
+---
+
+## v1 API (Requires API Key)
+
+### GET /v1/models
+List models available to the calling API key (filtered by pool + whitelist).
+
+**Request:**
+```bash
+curl -s http://127.0.0.1:8080/v1/models \
+  -H "Authorization: Bearer $API_KEY" | jq
+```
+
+**Success 200:**
 ```json
 {
   "object": "list",
   "data": [
-    {
-      "id": "grok-imagine-1.0-video",
-      "object": "model",
-      "created": 1709251200,
-      "owned_by": "xai"
-    }
+    {"id": "grok-4", "object": "model", "created": 1709251200, "owned_by": "xai"},
+    {"id": "grok-imagine-1.0-video", "object": "model", ...}
   ]
 }
 ```
 
-## 5. POST /v1/audio/speech
+**Errors:** 401 invalid_api_key, 429 rate/daily limit.
 
-Endpoint ini kompatibel dengan payload OpenAI-style dan meneruskan request ke xAI Grok TTS upstream (`/v1/tts`) memakai server-side key.
+### POST /v1/chat/completions
+Core endpoint. Supports:
+- Chat (text + tools)
+- Image generation (`grok-imagine-...`)
+- Image edit
+- Video sync (blocking, `grok-imagine-1.0-video`)
+- TTS via certain models or dedicated audio routes
 
-### Request
+See full OpenAI spec + Grok extensions (`image_config`, `video_config`, `thinking`).
 
-```http
-POST /v1/audio/speech HTTP/1.1
-Authorization: Bearer gf-xxxxxxxxxxxxxxxx
-Content-Type: application/json
+**Minimal chat example:**
+```bash
+curl -s http://127.0.0.1:8080/v1/chat/completions \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "grok-3-mini",
+    "messages": [{"role": "user", "content": "Hello from Grokpi"}],
+    "stream": false
+  }' | jq
 ```
 
-```json
-{
-  "model": "grok-tts",
-  "voice": "narrator",
-  "input": "Ini adalah uji narasi MASJAVAS.",
-  "response_format": "mp3",
-  "language": "id"
-}
-```
-
-### Field Request
-
-| Field | Tipe | Wajib | Default | Keterangan |
-| --- | --- | --- | --- | --- |
-| `model` | string | Tidak | `grok-tts` | Dipakai untuk whitelist API key |
-| `voice` | string | Tidak | `eve` | `eve`, `ara`, `rex`, `sal`, `leo`, atau alias `narrator` |
-| `input` | string | Ya | - | Teks yang akan diubah menjadi audio |
-| `response_format` | string | Tidak | `mp3` | `mp3`, `wav`, `pcm`, `mulaw`, atau `alaw` |
-| `language` | string | Tidak | `id` | Kode bahasa, contoh `id` |
-
-Alias `narrator` dipetakan ke env `GROKPI_TTS_NARRATOR_VOICE` atau fallback `ara`.
-
-### Response Sukses
-
-Response sukses mengembalikan binary audio langsung.
-
-| Format | Content-Type |
-| --- | --- |
-| `mp3` | `audio/mpeg` |
-| `wav` | `audio/wav` |
-
-### Konfigurasi Server
-
-Container GrokPi membaca env berikut dari `docker-compose.yml` / `.env`:
-
-```env
-GROKPI_TTS_API_KEY=xai-REPLACE_WITH_XAI_API_KEY
-GROKPI_TTS_UPSTREAM_URL=https://api.x.ai/v1/tts
-GROKPI_TTS_DEFAULT_LANGUAGE=id
-GROKPI_TTS_DEFAULT_VOICE=eve
-GROKPI_TTS_NARRATOR_VOICE=ara
-```
-
-Jika `GROKPI_TTS_API_KEY`, `XAI_API_KEY`, atau `GROKPI_XAI_API_KEY` belum diset, endpoint akan mengembalikan:
-
-```json
-{
-  "error": {
-    "message": "TTS upstream API key is not configured on the server",
-    "type": "server_error",
-    "param": null,
-    "code": "tts_upstream_not_configured"
-  }
-}
-```
-
-## 6. POST /v1/chat/completions (Endpoint Utama)
-
-## 6.1 Field Request Umum
-
-| Field | Tipe | Wajib | Default | Keterangan |
-| --- | --- | --- | --- | --- |
-| `model` | string | Ya | - | Model target |
-| `messages` | array | Ya | - | Riwayat percakapan / multimodal blocks |
-| `stream` | bool | Tidak | Mengikuti config `app.stream` | `true` untuk SSE stream |
-| `temperature` | number | Tidak | `0.8` | Range `0` s.d. `2` |
-| `top_p` | number | Tidak | `0.95` | Range `0` s.d. `1` |
-| `max_tokens` | int | Tidak | - | Batas output token untuk chat |
-| `reasoning_effort` | string | Tidak | - | `none|minimal|low|medium|high|xhigh` |
-| `tools` | array | Tidak | - | Tool definitions untuk tool-calling |
-| `tool_choice` | string/object | Tidak | - | `auto|required|none` atau object function |
-| `parallel_tool_calls` | bool | Tidak | `true` | Paralel tool calls |
-| `image_config` | object | Tidak | Tergantung model | Dipakai model image |
-| `video_config` | object | Tidak | Tergantung model | Dipakai model video |
-
-Validasi penting:
-- `model` wajib ada.
-- `messages` tidak boleh kosong.
-- `message.content` tidak boleh null/kosong.
-
-## 6.2 Format messages (text + image)
-
-### A. Bentuk text sederhana
-
-```json
-{
-  "role": "user",
-  "content": "Buatkan poster neon cyberpunk"
-}
-```
-
-### B. Bentuk multimodal blocks (disarankan untuk image edit/video reference)
-
-```json
-{
-  "role": "user",
-  "content": [
-    { "type": "text", "text": "Ubah gaya jadi cinematic" },
-    { "type": "image_url", "image_url": { "url": "data:image/png;base64,...." } }
-  ]
-}
-```
-
-Rule block yang diterima pada role `user`:
-
-| `type` | Keterangan |
-| --- | --- |
-| `text` | Teks prompt |
-| `image_url` | URL gambar / data URI base64 |
-| `input_audio` | Input audio (format block validasi tersedia) |
-| `file` | File input (format block validasi tersedia) |
-
-Untuk role selain `user`, konten block yang didukung adalah `text`.
-
-## 7. Image API via Chat Completions
-
-Gunakan model:
-- `grok-imagine-1.0`
-- `grok-imagine-1.0-fast`
-- `grok-imagine-1.0-edit`
-
-### 7.1 image_config
-
-| Field | Tipe | Default | Batasan |
-| --- | --- | --- | --- |
-| `n` | int | `1` | `1` s.d. `10` |
-| `size` | string | `1024x1024` | Hanya nilai yang diizinkan (lihat tabel size) |
-| `response_format` | string | `b64_json` | Saat ini dinormalisasi paksa ke `b64_json` |
-| `enable_nsfw` | bool | mengikuti sistem | Flag opsional NSFW |
-
-### 7.2 Size Image yang Diizinkan
-
-| Size |
-| --- |
-| `1024x1024` |
-| `1024x1792` |
-| `1792x1024` |
-| `1280x720` |
-| `720x1280` |
-
-Catatan stream untuk image:
-- Jika `stream=true`, maka `image_config.n` hanya boleh `1` atau `2`.
-
-### 7.3 Khusus model edit
-
-Model `grok-imagine-1.0-edit` membutuhkan minimal 1 gambar dari block `image_url` di messages user.
-
-## 7.4 Contoh request image generate
-
+**Image example:**
 ```json
 {
   "model": "grok-imagine-1.0",
-  "stream": false,
-  "messages": [
-    {
-      "role": "user",
-      "content": "A minimalist product photo of a smart watch on white background"
-    }
-  ],
-  "image_config": {
-    "n": 1,
-    "size": "1024x1024",
-    "response_format": "b64_json"
-  }
+  "messages": [{"role":"user","content":"A serene mountain lake at dawn"}],
+  "image_config": {"aspect_ratio": "16:9", "n": 1}
 }
 ```
 
-## 7.5 Contoh request image edit
+**Video sync (blocking, prefer async for long jobs):**
+Add `"video_config": {"aspect_ratio":"16:9", "video_length": 6, "resolution_name":"480p"}`
 
-```json
-{
-  "model": "grok-imagine-1.0-edit",
-  "stream": false,
-  "messages": [
-    {
-      "role": "user",
-      "content": [
-        { "type": "text", "text": "Make this image warmer and cinematic" },
-        { "type": "image_url", "image_url": { "url": "data:image/png;base64,...." } }
-      ]
+**Streaming:** `stream: true` → SSE (text/event-stream).
+
+**Common errors:**
+- 400 invalid_request_error / missing_prompt / invalid_video_config
+- 403 media_generation_disabled or model_not_allowed
+- 429 (token or api key limits)
+
+---
+
+## Async Video (Recommended for Video)
+
+### POST /v1/video/generations
+Submit async video job. Returns 202 + jobId immediately.
+
+**Request (same as chat video but dedicated):**
+```bash
+curl -s -X POST http://127.0.0.1:8080/v1/video/generations \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "grok-imagine-1.0-video",
+    "messages": [{"role":"user","content":"Cinematic drone shot over rice fields at sunrise"}],
+    "video_config": {
+      "aspect_ratio": "16:9",
+      "video_length": 8,
+      "resolution_name": "480p",
+      "preset": "normal"
     }
-  ],
-  "image_config": {
-    "n": 1,
-    "size": "1792x1024"
-  }
-}
+  }'
 ```
 
-## 8. Video API via Chat Completions
-
-Gunakan model:
-- `grok-imagine-1.0-video`
-
-### 8.1 video_config
-
-| Field | Tipe | Default | Batasan |
-| --- | --- | --- | --- |
-| `aspect_ratio` | string | `3:2` | Lihat nilai valid di bawah |
-| `video_length` | int | `6` | `6` s.d. `30` detik |
-| `resolution_name` | string | `480p` | `480p` atau `720p` |
-| `preset` | string | `custom` | `custom|fun|normal|spicy` |
-
-### 8.2 Aspect Ratio yang Diterima
-
-Bisa pakai ratio atau alias size berikut:
-
-| Input diterima | Dinormalisasi menjadi |
-| --- | --- |
-| `16:9` atau `1280x720` | `16:9` |
-| `9:16` atau `720x1280` | `9:16` |
-| `3:2` atau `1792x1024` | `3:2` |
-| `2:3` atau `1024x1792` | `2:3` |
-| `1:1` atau `1024x1024` | `1:1` |
-
-### 8.3 Mapping Resolution + Ratio ke Size Internal
-
-Server menghitung size internal dari rumus:
-- tinggi = `480` untuk `480p`
-- tinggi = `720` untuk `720p`
-- lebar = `tinggi * rasio_w / rasio_h` (integer)
-
-| resolution_name | aspect_ratio | size internal |
-| --- | --- | --- |
-| `480p` | `16:9` | `853x480` |
-| `480p` | `9:16` | `270x480` |
-| `480p` | `3:2` | `720x480` |
-| `480p` | `2:3` | `320x480` |
-| `480p` | `1:1` | `480x480` |
-| `720p` | `16:9` | `1280x720` |
-| `720p` | `9:16` | `405x720` |
-| `720p` | `3:2` | `1080x720` |
-| `720p` | `2:3` | `480x720` |
-| `720p` | `1:1` | `720x720` |
-
-### 8.4 Preset yang Didukung
-
-| Preset |
-| --- |
-| `custom` |
-| `fun` |
-| `normal` |
-| `spicy` |
-
-### 8.5 Reference image untuk video
-
-Jika ada block `image_url` pada message user, server menggunakan gambar pertama sebagai `reference_image`.
-
-### 8.6 Contoh request video
-
+**Success 202:**
 ```json
 {
-  "model": "grok-imagine-1.0-video",
-  "stream": false,
-  "messages": [
-    {
-      "role": "user",
-      "content": [
-        { "type": "text", "text": "A cinematic drone shot over tropical island at sunrise" }
-      ]
-    }
-  ],
-  "video_config": {
-    "aspect_ratio": "16:9",
-    "video_length": 10,
-    "resolution_name": "720p",
-    "preset": "normal"
-  }
-}
-```
-
-### 8.7 Async video generation
-
-Submit:
-
-```http
-POST /v1/video/generations
-```
-
-Body memakai bentuk request video yang sama seperti `/v1/chat/completions`.
-
-Contoh response awal:
-
-```json
-{
-  "jobId": "vid_job_xxx",
+  "jobId": "vid_job_abc123def456",
   "status": "queued",
   "model": "grok-imagine-1.0-video",
-  "createdAt": "2026-05-16T19:09:22Z",
-  "updatedAt": "2026-05-16T19:09:22Z"
+  "createdAt": "2026-...",
+  "updatedAt": "2026-..."
 }
 ```
 
-Polling:
+### GET /v1/video/generations/{jobId}
+Poll status.
 
-```http
-GET /v1/video/generations/{jobId}
+**Possible statuses:** `queued`, `processing`, `completed`, `failed`, `timeout`, `cancelled`
+
+**Success 200:** full job object (includes `videoUrl` when completed, `errorCode`/`errorMessage` on failure).
+
+### GET /v1/video/generations/{jobId}/result
+Only for completed jobs. Returns direct video URL (or 409 if not ready).
+
+### POST /v1/video/generations/{jobId}/cancel   *(NEW)*
+Cancel a queued/processing job (best-effort).
+
+```bash
+curl -s -X POST http://127.0.0.1:8080/v1/video/generations/vid_job_xxx/cancel \
+  -H "Authorization: Bearer $API_KEY"
 ```
 
-Status yang mungkin:
+Returns the updated job (status=cancelled) or 409 if already terminal.
 
-- `queued`
-- `processing`
-- `completed`
-- `failed`
-- `timeout`
+**Notes:**
+- Jobs are owned by the creating API key.
+- Final videos are served via `/api/files/video/{name}` (cached).
+- Long jobs use the async path to avoid  client timeouts.
 
-Saat selesai:
+---
 
-```json
-{
-  "jobId": "vid_job_xxx",
-  "status": "completed",
-  "model": "grok-imagine-1.0-video",
-  "videoUrl": "https://www.grokpi.masjavas.my.id/api/files/video/xxx.mp4",
-  "createdAt": "2026-05-16T19:09:22Z",
-  "updatedAt": "2026-05-16T19:12:11Z",
-  "completedAt": "2026-05-16T19:12:11Z"
-}
+## TTS / Audio
+
+### POST /v1/audio/speech (OpenAI compatible)
+```bash
+curl -s -X POST http://127.0.0.1:8080/v1/audio/speech \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "grok-tts",
+    "input": "Halo, ini tes TTS dari Grokpi.",
+    "voice": "eve",
+    "response_format": "mp3"
+  }' --output speech.mp3
 ```
 
-## 9. Response Format
+### POST /tts (native xAI payload)
+Use for advanced params (`voice_id`, `language`, `output_format`, `text_normalization` etc.).
 
-### 9.1 Non-stream (`stream=false`)
+Env config (server side): `GROKPI_TTS_API_KEY`, `GROKPI_TTS_UPSTREAM_URL`, defaults for voice/language.
 
-Response shape OpenAI-compatible:
+**Improvements (PHASE 6):** retry on 5xx/429, better validation, per-attempt timeout, clear error messages.
 
-```json
-{
-  "id": "chatcmpl-...",
-  "object": "chat.completion",
-  "created": 1710000000,
-  "model": "grok-imagine-1.0-video",
-  "choices": [
-    {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "[video](http://127.0.0.1:8080/api/files/video/xxx.mp4)"
-      },
-      "finish_reason": "stop"
-    }
-  ],
-  "usage": {
-    "prompt_tokens": 0,
-    "completion_tokens": 0,
-    "total_tokens": 0
-  }
-}
+**Errors:** 400 missing_input, 501 tts_upstream_not_configured, 502 upstream_failed (after retries).
+
+---
+
+## Admin Endpoints (APP_KEY auth)
+
+See Admin UI (http://host/login) or direct:
+
+- GET/POST/DELETE /admin/tokens
+- GET/POST /admin/apikeys
+- GET /admin/usage , /admin/stats
+- GET/POST /admin/config
+- GET /admin/cache , /admin/system
+
+Full details in built-in docs or source `internal/httpapi/admin_*.go`.
+
+---
+
+## File Serving (Public for results)
+
+`GET /api/files/video/{name}` — serves cached video results (no auth, for shareable links from jobs).
+
+---
+
+## Full cURL Collection (copy-paste ready)
+
+See sections above. Also health:
+
+```bash
+curl -s http://127.0.0.1:8080/ready | jq
 ```
 
-Catatan output media:
-- Image biasanya dikembalikan sebagai markdown image dengan data URI base64.
-- Video dikembalikan sebagai markdown link `[video](...)`.
+## Rate Limits & Quotas
 
-### 9.2 Stream (`stream=true`)
+- Per token (configurable in admin or config.toml `[token]`)
+- Per API key (daily + per-minute via admin)
+- 429 responses include `retry-after` hints where applicable.
 
-- Content-Type: SSE
-- Format: `chat.completion.chunk`
-- Akhir stream: `data: [DONE]`
+## Versioning & Compatibility
 
-## 10. Error Codes Penting
+- OpenAI Chat Completions + Images + Audio speech compatible.
+- Grok-specific extensions via extra fields in request (`image_config`, `video_config`, `thinking`).
+- Always check `/v1/models` for live available models (depends on your token pool).
 
-| HTTP | code | Kapan terjadi |
-| --- | --- | --- |
-| 400 | `invalid_json` | JSON request rusak |
-| 400 | `missing_model` | field `model` kosong |
-| 400 | `invalid_messages` | messages kosong/tidak valid |
-| 400 | `invalid_temperature` | di luar `0..2` |
-| 400 | `invalid_top_p` | di luar `0..1` |
-| 400 | `invalid_image_config` | image_config tidak valid |
-| 400 | `invalid_video_config` | video_config tidak valid |
-| 400 | `missing_prompt` | prompt kosong untuk image/video |
-| 400 | `missing_image` | image edit tanpa image_url |
-| 401 | `invalid_api_key` | API key kosong/tidak valid/inactive/expired |
-| 403 | `model_not_allowed` | model tidak masuk whitelist API key |
-| 403 | `media_generation_disabled` | fitur media dimatikan admin |
-| 404 | `model_not_found` | model tidak ada di config model pool |
-| 429 | `rate_limit_exceeded` | limit per menit API key terlampaui |
-| 429 | `daily_limit_exceeded` | kuota harian API key habis |
+---
 
-## 11. Catatan Integrasi Frontend Studio
+*This document is the canonical reference. Source of truth for integrators. Updated as part of full release preparation.*
+*For even more internal details see `docs/DOKUMEN_*.md`.*
 
-- Selalu panggil `GET /v1/models` saat app load untuk sinkron model real-time.
-- Untuk tab video, filter model `grok-imagine-1.0-video`.
-- Untuk tab image, gunakan `grok-imagine-1.0`, `grok-imagine-1.0-fast`, `grok-imagine-1.0-edit`.
-- Simpan API key per user/session, jangan hardcode di source frontend.
-- Tampilkan pesan error berdasarkan `error.code` agar UX lebih jelas.
+**Last updated:** during PHASE 7 of release mission (added cancel, full health, retry notes, complete examples for video/TTS).
