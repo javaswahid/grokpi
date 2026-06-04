@@ -13,8 +13,8 @@ import (
 
 	http "github.com/bogdanfinn/fhttp"
 	tls_client "github.com/bogdanfinn/tls-client"
-	"github.com/bogdanfinn/tls-client/profiles"
 	"github.com/javaswahid/grokpi/internal/store"
+	"github.com/javaswahid/grokpi/internal/xai"
 )
 
 var (
@@ -345,32 +345,8 @@ func (m *TokenManager) fetchRateLimits(ctx context.Context, authToken, baseURL s
 		tls_client.WithTimeoutSeconds(15),
 	}
 
-	// Resolve profile (use profiles subpackage for tls-client v1.14+)
-	var profile profiles.ClientProfile
-	switch strings.ToLower(browserProfile) {
-	case "firefox_102":
-		profile = profiles.Firefox_102
-	case "firefox_117":
-		profile = profiles.Firefox_117
-	case "chrome_103":
-		profile = profiles.Chrome_103
-	case "chrome_111":
-		profile = profiles.Chrome_111
-	case "chrome_112":
-		profile = profiles.Chrome_112
-	case "chrome_116":
-		profile = profiles.Chrome_116
-	case "chrome_117":
-		profile = profiles.Chrome_117
-	case "chrome_118":
-		profile = profiles.Chrome_118
-	case "chrome_119":
-		profile = profiles.Chrome_119
-	case "chrome_120":
-		profile = profiles.Chrome_120
-	default:
-		profile = profiles.Chrome_120
-	}
+	// Resolve profile using centralized helper (handles all versions and fallbacks)
+	profile := xai.ResolveBrowserProfile(browserProfile)
 	tlsOpts = append(tlsOpts, tls_client.WithClientProfile(profile))
 
 	if skipProxySSLVerify {
