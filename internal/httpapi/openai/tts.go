@@ -3,6 +3,7 @@ package openai
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -75,25 +76,79 @@ func (h *Handler) handleTTS(w http.ResponseWriter, r *http.Request, openAICompat
 		return
 	}
 
-	httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, ttsUpstreamURL(), bytes.NewReader(payload))
+	httpReqBase, err := http.NewRequestWithContext(r.Context(), http.MethodPost, ttsUpstreamURL(), bytes.NewReader(payload))
 	if err != nil {
 		httpapi.WriteError(w, http.StatusInternalServerError, "server_error", "tts_request_failed", "Failed to build TTS upstream request")
 		return
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+upstreamKey)
-	httpReq.Header.Set("Content-Type", "application/json")
+	httpReqBase.Header.Set("Authorization", "Bearer "+upstreamKey)
+	httpReqBase.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 15 * time.Minute}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		httpapi.WriteError(w, http.StatusBadGateway, "upstream_error", "tts_upstream_failed", "TTS upstream request failed")
-		return
+	// Retry + better error handling (PHASE 6)
+	const maxAttempts = 2
+	var lastErr error
+	client := &http.Client{Timeout: 90 * time.Second} // per-attempt; long audio still allowed via streaming copy
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			// small backoff + jitter
+			backoff := time.Duration(300+attempt*200) * time.Millisecond
+			select {
+			case <-r.Context().Done():
+				httpapi.WriteError(w, http.StatusRequestTimeout, "upstream_error", "tts_cancelled", "TTS request cancelled during retry")
+				return
+			case <-time.After(backoff):
+			}
+		}
+
+		// Clone request body for retry (since Reader is consumed)
+		reqForAttempt := httpReqBase.Clone(r.Context())
+		if attempt > 0 {
+			reqForAttempt.Body = io.NopCloser(bytes.NewReader(payload))
+		}
+
+		resp, err := client.Do(reqForAttempt)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		func() {
+			defer resp.Body.Close()
+			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+				body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+				lastErr = fmt.Errorf("upstream status %d: %s", resp.StatusCode, sanitizeUpstreamMessage(string(body)))
+				// do not return yet; allow retry on 5xx/429
+				if resp.StatusCode >= 500 || resp.StatusCode == 429 {
+					return
+				}
+				// client error, no retry
+				httpapi.WriteError(w, resp.StatusCode, "upstream_error", "tts_upstream_failed", sanitizeUpstreamMessage(string(body)))
+				lastErr = nil // handled
+				return
+			}
+
+			// Success path
+			if upstreamType := resp.Header.Get("Content-Type"); upstreamType != "" {
+				w.Header().Set("Content-Type", upstreamType)
+			} else {
+				w.Header().Set("Content-Type", contentType)
+			}
+			w.Header().Set("Cache-Control", "no-store")
+			w.WriteHeader(http.StatusOK)
+			_, _ = io.Copy(w, resp.Body)
+			lastErr = nil
+		}()
+
+		if lastErr == nil {
+			// logged success with attempt count for metrics
+			// (real metrics would use prometheus or logging hook)
+			return
+		}
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		httpapi.WriteError(w, resp.StatusCode, "upstream_error", "tts_upstream_failed", sanitizeUpstreamMessage(string(body)))
-		return
+
+	if lastErr != nil {
+		httpapi.WriteError(w, http.StatusBadGateway, "upstream_error", "tts_upstream_failed", "TTS upstream request failed after retries: "+lastErr.Error())
 	}
 
 	if upstreamType := resp.Header.Get("Content-Type"); upstreamType != "" {

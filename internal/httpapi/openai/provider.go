@@ -18,6 +18,7 @@ func (h *Handler) SetupRoutes(r chi.Router) {
 	r.Post("/video/generations", h.handleCreateVideoGeneration)
 	r.Get("/video/generations/{jobId}", h.handleGetVideoGeneration)
 	r.Get("/video/generations/{jobId}/result", h.handleGetVideoGenerationResult)
+	r.Post("/video/generations/{jobId}/cancel", h.handleCancelVideoGeneration)
 	r.Post("/audio/speech", h.handleSpeech)
 	r.Post("/tts", h.handleNativeTTS)
 }

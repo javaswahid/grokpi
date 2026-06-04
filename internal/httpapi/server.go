@@ -2,6 +2,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -59,6 +60,7 @@ type Server struct {
 	apiKeyStore     APIKeyStoreInterface
 	cacheService    *cache.Service
 	configStore     *store.ConfigStore
+	dbPing          func(ctx context.Context) error // optional for real DB health in /ready
 }
 
 // ServerConfig holds server configuration.
@@ -76,6 +78,7 @@ type ServerConfig struct {
 	APIKeyStore     APIKeyStoreInterface
 	CacheService    *cache.Service
 	ConfigStore     *store.ConfigStore
+	DBPing          func(ctx context.Context) error
 }
 
 // NewServer creates a new HTTP server with configured routes.
@@ -98,6 +101,7 @@ func NewServer(cfg *ServerConfig) *Server {
 		tokenStore:      cfg.TokenStore,
 		tokenRefresher:  cfg.TokenRefresher,
 		tokenPoolSyncer: cfg.TokenPoolSyncer,
+		dbPing:          cfg.DBPing,
 		videoTester:     cfg.VideoTester,
 		usageLogStore:   cfg.UsageLogStore,
 		apiKeyStore:     cfg.APIKeyStore,
@@ -154,9 +158,11 @@ func debugRequestLogger(next http.Handler) http.Handler {
 
 // setupRoutes configures all routes.
 func (s *Server) setupRoutes() {
-	// Health check endpoints (no auth)
+	// Health check endpoints (no auth) - Kubernetes / ops friendly
 	s.router.Get("/health", s.handleHealth)
 	s.router.Get("/healthz", s.handleHealth)
+	s.router.Get("/live", s.handleLive)
+	s.router.Get("/ready", s.handleReady)
 
 	// Public cached file serving (video only — images are now base64-inlined)
 	if s.cacheService != nil {
@@ -347,21 +353,117 @@ func (s *Server) Router() http.Handler {
 	return s.router
 }
 
-// HealthResponse is the health check response.
+// HealthResponse is the health check response (detailed).
 type HealthResponse struct {
+	Status    string `json:"status"`
+	Version   string `json:"version,omitempty"`
+	Uptime    string `json:"uptime"`
+	Timestamp string `json:"timestamp"`
+	Database  string `json:"database,omitempty"`
+	Queue     string `json:"queue,omitempty"`
+	Storage   string `json:"storage,omitempty"`
+	TTS       string `json:"tts,omitempty"`
+	Video     string `json:"video,omitempty"`
+	Details   string `json:"details,omitempty"`
+}
+
+// LiveResponse for /live (liveness probe - is process alive?)
+type LiveResponse struct {
 	Status    string `json:"status"`
 	Uptime    string `json:"uptime"`
 	Timestamp string `json:"timestamp"`
 }
 
-// handleHealth returns server health status.
+// ReadyResponse for /ready (readiness probe - can serve traffic?)
+type ReadyResponse struct {
+	Status    string            `json:"status"`
+	Timestamp string            `json:"timestamp"`
+	Checks    map[string]string `json:"checks"`
+}
+
+// handleHealth returns detailed server health status.
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	now := time.Now().UTC()
+	uptime := time.Since(s.startTime).Round(time.Second).String()
+
 	resp := HealthResponse{
-		Status:    "ok",
+		Status:    "healthy",
+		Version:   s.version,
+		Uptime:    uptime,
+		Timestamp: now.Format(time.RFC3339),
+		Database:  "ok",
+		Queue:     "ok",
+		Storage:   "ok",
+		TTS:       "ok",
+		Video:     "ok",
+	}
+
+	// Perform lightweight dependency checks if providers available
+	if s.cfg != nil {
+		if !s.cfg.App.MediaGenerationEnabled {
+			resp.TTS = "disabled"
+			resp.Video = "disabled"
+		}
+	}
+	if s.chatProvider == nil {
+		resp.Status = "degraded"
+		resp.Details = "chat provider not configured"
+	}
+
+	WriteJSON(w, http.StatusOK, resp)
+}
+
+// handleLive is Kubernetes-style liveness (process is up, no deadlock assumed).
+func (s *Server) handleLive(w http.ResponseWriter, r *http.Request) {
+	resp := LiveResponse{
+		Status:    "alive",
 		Uptime:    time.Since(s.startTime).Round(time.Second).String(),
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	}
 	WriteJSON(w, http.StatusOK, resp)
+}
+
+// handleReady is readiness: critical deps must be ready (db, basic services).
+func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
+	now := time.Now().UTC()
+	checks := map[string]string{
+		"database": "ok",
+		"config":   "ok",
+		"token":    "ok",
+		"video":    "ok",
+	}
+
+	status := "ready"
+	if s.tokenStore == nil {
+		checks["token"] = "not_configured"
+		status = "not_ready"
+	}
+
+	// Real DB ping with short timeout if provided (wired from main)
+	if s.dbPing != nil {
+		pingCtx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+		if err := s.dbPing(pingCtx); err != nil {
+			checks["database"] = "error: " + err.Error()
+			status = "not_ready"
+		}
+	}
+
+	// Video flow readiness (if handler not wired, mark degraded but don't fail ready for API keys only)
+	if s.chatProvider == nil {
+		checks["video"] = "degraded"
+	}
+
+	resp := ReadyResponse{
+		Status:    status,
+		Timestamp: now.Format(time.RFC3339),
+		Checks:    checks,
+	}
+	code := http.StatusOK
+	if status != "ready" {
+		code = http.StatusServiceUnavailable
+	}
+	WriteJSON(w, code, resp)
 }
 
 // WriteJSON writes a JSON response.

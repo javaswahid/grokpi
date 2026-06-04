@@ -74,4 +74,54 @@ config.local.toml
 *.log
 *.bak
 *.backup
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.pem
+*.key
+*.crt
+*.p12
+
+# Env & secrets (never commit)
+.env
+.env.*
+!.env.example
+config.toml
+config.*.toml
+!config.defaults.toml
+
+# Build / dist
+dist/
+build/
+vendor/
+coverage/
+*.out
+*.test
+
+# OS / editor
+Thumbs.db
+.DS_Store
+*.swp
+*~
+
+# Temp / cache
+tmp/
+temp/
+cache/
+*.cache
+*.pid
+
+# Video / media review artifacts
+review-frames/
+review-smoke-lantern/
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# Runtime / dev artifacts
+.runtime-audit-snapshots/
+.runtime-logs/
+.runtime-*/
 

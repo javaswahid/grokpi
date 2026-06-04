@@ -26,6 +26,7 @@ const (
 	videoJobStatusCompleted  = "completed"
 	videoJobStatusFailed     = "failed"
 	videoJobStatusTimeout    = "timeout"
+	videoJobStatusCancelled  = "cancelled"
 )
 
 type videoGenerationResponse struct {
@@ -128,8 +129,13 @@ func (h *Handler) handleCreateVideoGeneration(w http.ResponseWriter, r *http.Req
 		"model", job.Model,
 		"payload_size", job.PayloadSize,
 	)
+	// Create cancellable context for this job (supports /cancel)
+	ctx, cancel := context.WithCancel(context.Background())
+	h.registerCancel(job.JobID, cancel)
+
 	flow.SafeGo("video_generation_"+job.JobID, func() {
-		h.runVideoGenerationJob(job.JobID, apiKeyID, videoReq, trace)
+		defer h.unregisterCancel(job.JobID)
+		h.runVideoGenerationJob(job.JobID, apiKeyID, videoReq, trace, ctx, cancel)
 	})
 
 	httpapi.WriteJSON(w, http.StatusAccepted, toVideoGenerationResponse(r, job))
@@ -181,8 +187,8 @@ func (h *Handler) loadVideoJobForRequest(w http.ResponseWriter, r *http.Request)
 	return job, true
 }
 
-func (h *Handler) runVideoGenerationJob(jobID string, apiKeyID uint, videoReq *flow.VideoRequest, trace *flow.VideoTrace) {
-	ctx := context.WithValue(context.Background(), flow.FlowAPIKeyIDKey, apiKeyID)
+func (h *Handler) runVideoGenerationJob(jobID string, apiKeyID uint, videoReq *flow.VideoRequest, trace *flow.VideoTrace, jobCtx context.Context, cancel context.CancelFunc) {
+	ctx := context.WithValue(jobCtx, flow.FlowAPIKeyIDKey, apiKeyID)
 	ctx = flow.WithVideoTrace(ctx, trace)
 
 	job, err := h.VideoJobs.GetByID(ctx, jobID)
@@ -190,12 +196,53 @@ func (h *Handler) runVideoGenerationJob(jobID string, apiKeyID uint, videoReq *f
 		flow.LogVideoStage(ctx, "failed", "job_id", jobID, "error_code", "video_job_lookup_failed", "error", err)
 		return
 	}
+
+	// Check for early cancel (e.g. user called /cancel immediately)
+	select {
+	case <-ctx.Done():
+		job.Status = videoJobStatusCancelled
+		job.ErrorCode = "cancelled"
+		job.ErrorMessage = "job cancelled before processing"
+		job.UpdatedAt = time.Now().UTC()
+		_ = h.VideoJobs.Save(ctx, job)
+		flow.LogVideoStage(ctx, "cancelled", "job_id", job.JobID)
+		return
+	default:
+	}
+
 	job.Status = videoJobStatusProcessing
 	job.UpdatedAt = time.Now().UTC()
 	_ = h.VideoJobs.Save(ctx, job)
 	flow.LogVideoStage(ctx, "auth_passed", "job_id", job.JobID, "model", job.Model)
 
-	videoURL, err := h.VideoFlow.GenerateSync(ctx, videoReq)
+	// Simple retry (1 retry on transient non-permanent errors)
+	var videoURL string
+	var genErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		if attempt > 0 {
+			flow.LogVideoStage(ctx, "retry", "job_id", jobID, "attempt", attempt+1)
+			// small backoff
+			select {
+			case <-ctx.Done():
+				genErr = context.Canceled
+				break
+			case <-time.After(2 * time.Second):
+			}
+		}
+		videoURL, genErr = h.VideoFlow.GenerateSync(ctx, videoReq)
+		if genErr == nil {
+			break
+		}
+		// Only retry on certain transient errors
+		var vErr *flow.VideoError
+		if errors.As(genErr, &vErr) {
+			if vErr.Code == "timeout" || vErr.Code == "upstream_429" || vErr.Code == "rate_limited" {
+				continue
+			}
+		}
+		break // non-retryable
+	}
+
 	now := time.Now().UTC()
 	snapshot := trace.Snapshot()
 	job.ParentPostID = snapshot.ParentPostID
@@ -203,14 +250,24 @@ func (h *Handler) runVideoGenerationJob(jobID string, apiKeyID uint, videoReq *f
 	job.UpstreamRequestID = snapshot.UpstreamRequestID
 	job.UpdatedAt = now
 	job.CompletedAt = &now
-	if err != nil {
+
+	if ctx.Err() == context.Canceled {
+		job.Status = videoJobStatusCancelled
+		job.ErrorCode = "cancelled"
+		job.ErrorMessage = "job was cancelled"
+		_ = h.VideoJobs.Save(ctx, job)
+		flow.LogVideoStage(ctx, "cancelled", "job_id", job.JobID)
+		return
+	}
+
+	if genErr != nil {
 		var videoErr *flow.VideoError
-		if errors.As(err, &videoErr) {
+		if errors.As(genErr, &videoErr) {
 			job.ErrorCode = videoErr.Code
 			job.ErrorMessage = videoErr.Error()
 		} else {
 			job.ErrorCode = "video_generation_failed"
-			job.ErrorMessage = err.Error()
+			job.ErrorMessage = genErr.Error()
 		}
 		if job.ErrorCode == "timeout" {
 			job.Status = videoJobStatusTimeout
@@ -258,4 +315,37 @@ func newVideoJobID() string {
 		return "vid_job_" + time.Now().UTC().Format("20060102150405.000000000")
 	}
 	return "vid_job_" + hex.EncodeToString(buf)
+}
+
+// handleCancelVideoGeneration marks job cancelled (best-effort) and triggers context cancel if running.
+func (h *Handler) handleCancelVideoGeneration(w http.ResponseWriter, r *http.Request) {
+	job, ok := h.loadVideoJobForRequest(w, r)
+	if !ok {
+		return
+	}
+
+	if job.Status == videoJobStatusCompleted || job.Status == videoJobStatusFailed ||
+		job.Status == videoJobStatusTimeout || job.Status == videoJobStatusCancelled {
+		httpapi.WriteError(w, http.StatusConflict, "invalid_request_error", "video_job_not_cancellable",
+			"job is already in terminal state: "+job.Status)
+		return
+	}
+
+	// Trigger cancel
+	h.cancelJob(job.JobID)
+
+	// Update DB immediately
+	now := time.Now().UTC()
+	job.Status = videoJobStatusCancelled
+	job.ErrorCode = "cancelled"
+	job.ErrorMessage = "cancelled by user"
+	job.UpdatedAt = now
+	if err := h.VideoJobs.Save(r.Context(), job); err != nil {
+		httpapi.WriteError(w, http.StatusInternalServerError, "server_error", "video_job_cancel_failed", err.Error())
+		return
+	}
+
+	flow.LogVideoStage(r.Context(), "user_cancelled", "job_id", job.JobID)
+
+	httpapi.WriteJSON(w, http.StatusOK, toVideoGenerationResponse(r, job))
 }

@@ -107,3 +107,39 @@ func TestServer_NoChatProvider_ReturnsNotImplemented(t *testing.T) {
 		t.Fatalf("got status %d, want %d", rr.Code, http.StatusNotImplemented)
 	}
 }
+
+func TestServer_HealthEndpoints(t *testing.T) {
+	srv := NewServer(&ServerConfig{
+		Version: "test-1.0.0",
+	})
+
+	tests := []struct {
+		path       string
+		wantStatus int
+		wantBody   string
+	}{
+		{"/health", http.StatusOK, `"status":"healthy"`},
+		{"/healthz", http.StatusOK, `"status":"healthy"`},
+		{"/live", http.StatusOK, `"status":"alive"`},
+		{"/ready", http.StatusOK, `"status":"ready"`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			rr := httptest.NewRecorder()
+			srv.Router().ServeHTTP(rr, req)
+
+			if rr.Code != tt.wantStatus {
+				t.Errorf("%s: got status %d, want %d", tt.path, rr.Code, tt.wantStatus)
+			}
+			body := rr.Body.String()
+			if !strings.Contains(body, tt.wantBody) {
+				t.Errorf("%s: body %s does not contain %s", tt.path, body, tt.wantBody)
+			}
+			if !strings.Contains(body, "timestamp") {
+				t.Errorf("%s: missing timestamp in response", tt.path)
+			}
+		})
+	}
+}
