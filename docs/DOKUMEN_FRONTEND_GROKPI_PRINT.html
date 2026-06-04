@@ -1,0 +1,82 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Dokumen Frontend Grokpi</title><style>@page{size:A4;margin:18mm 16mm}body{font:13px/1.55 Segoe UI,Arial,sans-serif;color:#17202a}h1{font-size:28px;margin:0 0 20px;color:#0f172a}h2{font-size:18px;margin:26px 0 9px;padding-bottom:5px;border-bottom:1px solid #d8dee9;color:#0f172a}h3{font-size:15px;margin:18px 0 8px}p{margin:0 0 9px}ul,ol{margin:0 0 11px 22px;padding:0}li{margin:3px 0}code{background:#f1f5f9;border-radius:4px;padding:1px 4px;font-family:Cascadia Mono,Consolas,monospace;font-size:12px}pre.code{white-space:pre-wrap;border:1px solid #d8dee9;background:#fbfdff;border-radius:6px;padding:12px;font:11px/1.45 Cascadia Mono,Consolas,monospace;break-inside:avoid}pre.mermaid:before{content:'Mermaid / Flowchart';display:block;font:700 11px Segoe UI,Arial,sans-serif;color:#475569;text-transform:uppercase;margin-bottom:6px}table{width:100%;border-collapse:collapse;margin:12px 0 18px;font-size:12px}th,td{border:1px solid #d6dce7;padding:7px 8px;vertical-align:top}th{background:#eef2f7;text-align:left}</style></head><body><h1>Dokumen Frontend Grokpi</h1>
+<h2>1. Ringkasan</h2>
+<p>Frontend Grokpi adalah Admin Console berbasis web untuk mengoperasikan gateway Grokpi. Fokus utama frontend adalah memberi admin kontrol atas token pool, API key, usage, cache, konfigurasi runtime, dan observability sistem tanpa perlu mengakses database atau file konfigurasi secara manual.</p>
+<p>Frontend berada di folder <code>web/</code>, dibangun dengan Next.js, React, TypeScript, TanStack Query, dan komponen UI lokal. Pada build produksi, frontend di-embed ke binary Go dan disajikan oleh backend yang sama.</p>
+<h2>2. Tujuan Frontend</h2>
+<ul><li>Menyediakan dashboard operasional untuk melihat status Grokpi secara cepat.</li><li>Memudahkan admin mengelola token upstream Basic/Super.</li><li>Memudahkan admin membuat dan membatasi API key client.</li><li>Menampilkan usage, quota, cache, dan status sistem secara jelas.</li><li>Menyediakan UI konfigurasi runtime tanpa edit manual <code>config.toml</code>.</li><li>Menjaga rahasia tetap aman dengan masking API key/token dan session admin.</li></ul>
+<h2>3. Struktur Aplikasi</h2>
+<pre class="code "><code>web/
+  src/
+    app/
+      (auth)/login/page.tsx
+      (admin)/dashboard/page.tsx
+      (admin)/tokens/page.tsx
+      (admin)/apikeys/page.tsx
+      (admin)/usage/page.tsx
+      (admin)/cache/page.tsx
+      (admin)/settings/page.tsx
+      (admin)/function/page.tsx
+    components/
+      layout/
+      features/
+      ui/
+    lib/
+      api-client.ts
+      hooks/
+      i18n/
+      query-provider.tsx
+      validations/
+    types/</code></pre>
+<h2>4. Halaman Utama</h2>
+<table><thead><tr><th>Halaman</th><th>Fungsi</th></tr></thead><tbody><tr><td>Login</td><td>Autentikasi admin memakai <code>app_key</code> backend.</td></tr><tr><td>Dashboard</td><td>Ringkasan uptime, token stats, API key stats, quota pool, usage chart, dan status sistem.</td></tr><tr><td>Tokens</td><td>CRUD token upstream, batch import/export, sync quota, reset usage, replace token, refresh/revalidate, dan video capability test.</td></tr><tr><td>API Keys</td><td>CRUD API key client, regenerate key, whitelist model, rate limit, daily limit, expiry, dan status.</td></tr><tr><td>Usage</td><td>Melihat usage log dan agregasi penggunaan berdasarkan periode/model/status/API key.</td></tr><tr><td>Cache</td><td>Melihat cache file, cache stats, preview/download, delete selected, dan clear cache.</td></tr><tr><td>Settings</td><td>Mengubah konfigurasi runtime seperti app, proxy, retry, model defaults, image/video defaults, dan security limit.</td></tr><tr><td>Function</td><td>Area fitur/probe tambahan untuk endpoint/fungsi provider.</td></tr></tbody></table>
+<h2>5. Arsitektur Frontend</h2>
+<pre class="code mermaid"><code>flowchart LR
+    Browser[Admin Browser] --&gt; App[Next.js App Router]
+    App --&gt; Shell[AdminAppShell]
+    Shell --&gt; Query[TanStack Query Provider]
+    Shell --&gt; Layout[Admin Layout + Sidebar]
+    App --&gt; Pages[Admin Pages]
+    Pages --&gt; Hooks[Custom Hooks]
+    Hooks --&gt; ApiClient[apiFetch /admin]
+    ApiClient --&gt; Backend[Go Backend Admin API]
+    Backend --&gt; Store[(SQLite/PostgreSQL)]</code></pre>
+<h2>6. Alur Login Admin</h2>
+<pre class="code mermaid"><code>sequenceDiagram
+    participant Admin as Admin Browser
+    participant Login as Login Page
+    participant API as /admin/login
+    participant Backend as Go Backend
+
+    Admin-&gt;&gt;Login: Input app key
+    Login-&gt;&gt;API: POST /admin/login
+    API-&gt;&gt;Backend: Validasi app_key
+    Backend--&gt;&gt;API: Set cookie/session admin
+    API--&gt;&gt;Login: status ok
+    Login--&gt;&gt;Admin: Redirect ke Dashboard</code></pre>
+<h2>7. Data Fetching dan State</h2>
+<p>Frontend memakai pola server-state, bukan global store manual.</p>
+<ul><li><code>api-client.ts</code> menjadi wrapper fetch utama ke prefix <code>/admin</code>.</li><li>Jika response <code>401</code>, frontend otomatis redirect ke <code>/login/</code>.</li><li><code>TanStack Query</code> mengatur cache, loading state, refetch, dan invalidation.</li><li>Hook seperti <code>useSystemStatus</code>, <code>useTokens</code>, <code>useAPIKeyStats</code>, <code>useUsageLogs</code>, dan <code>useCache</code> menjadi batas antara UI dan API.</li><li>Form memakai validasi typed schema saat tersedia, terutama untuk token, API key, dan config.</li></ul>
+<p>Contoh alur data:</p>
+<pre class="code mermaid"><code>sequenceDiagram
+    participant Page as Dashboard Page
+    participant Hook as useDashboard*
+    participant APIClient as apiFetch
+    participant AdminAPI as /admin/*
+
+    Page-&gt;&gt;Hook: render dan request data
+    Hook-&gt;&gt;APIClient: GET endpoint admin
+    APIClient-&gt;&gt;AdminAPI: fetch + cookie/session
+    AdminAPI--&gt;&gt;APIClient: JSON response
+    APIClient--&gt;&gt;Hook: typed data / APIError
+    Hook--&gt;&gt;Page: data, loading, error
+    Page--&gt;&gt;Page: render cards, chart, alert</code></pre>
+<h2>8. Komponen UI</h2>
+<table><thead><tr><th>Area</th><th>Komponen</th></tr></thead><tbody><tr><td>Layout</td><td><code>AdminAppShell</code>, <code>AdminLayout</code>, sidebar, header, error fallback.</td></tr><tr><td>Feedback</td><td>Alert, toast, skeleton, progress, status badge.</td></tr><tr><td>Form</td><td>Input, textarea, select, switch, checkbox, dialog, confirm dialog.</td></tr><tr><td>Data</td><td>Table, tabs, dropdown menu, token table, cache file table, request log.</td></tr><tr><td>Dashboard</td><td>Stat cards, quota cards, usage chart, ops studio.</td></tr><tr><td>Media/Function</td><td>Chat panel, image grid, imagine panel, video panel, markdown renderer.</td></tr></tbody></table>
+<h2>9. Integrasi Endpoint Admin</h2>
+<table><thead><tr><th>Endpoint</th><th>Dipakai Untuk</th></tr></thead><tbody><tr><td><code>POST /admin/login</code></td><td>Login admin.</td></tr><tr><td><code>GET /admin/verify</code></td><td>Verifikasi session admin.</td></tr><tr><td><code>POST /admin/logout</code></td><td>Logout.</td></tr><tr><td><code>GET /admin/system/status</code></td><td>Uptime, version, token/API key summary.</td></tr><tr><td><code>GET /admin/system/usage</code></td><td>Agregasi usage dashboard.</td></tr><tr><td><code>GET /admin/usage/logs</code></td><td>Tabel usage log.</td></tr><tr><td><code>GET/PUT /admin/config</code></td><td>Lihat dan update konfigurasi runtime.</td></tr><tr><td><code>GET/PATCH/DELETE /admin/tokens/{id}</code></td><td>Manajemen token.</td></tr><tr><td><code>POST /admin/tokens/batch</code></td><td>Batch import/export token.</td></tr><tr><td><code>POST /admin/tokens/{id}/sync-quota</code></td><td>Sinkron quota token.</td></tr><tr><td><code>POST /admin/tokens/{id}/refresh</code></td><td>Refresh token official.</td></tr><tr><td><code>POST /admin/tokens/{id}/test-video-capability</code></td><td>Cek kemampuan video token.</td></tr><tr><td><code>GET/POST/PATCH/DELETE /admin/apikeys</code></td><td>Manajemen API key client.</td></tr><tr><td><code>GET/POST /admin/cache/*</code></td><td>Stats, list, delete, clear, dan serve cache.</td></tr></tbody></table>
+<h2>10. Requirement UX</h2>
+<ul><li>Dashboard harus memprioritaskan status operasional: health, quota, token state, API key state, dan usage.</li><li>Tabel token/API key/cache harus mendukung scanning cepat melalui status badge, filter, pagination, dan aksi baris.</li><li>Operasi destruktif seperti delete token, delete cache, dan clear cache wajib memakai confirm dialog.</li><li>Loading state wajib memakai skeleton/progress yang tidak menggeser layout secara ekstrem.</li><li>Error backend harus ditampilkan berdasarkan <code>APIError.code</code> dan pesan yang aman.</li><li>API key/token tidak boleh ditampilkan penuh kecuali saat create/regenerate sesuai response backend.</li></ul>
+<h2>11. Security Frontend</h2>
+<ul><li>Jangan menyimpan upstream token atau API key client di localStorage frontend publik.</li><li>Admin Console hanya boleh menampilkan token/key dalam bentuk masked pada list/detail.</li><li>Session admin ditangani oleh backend; frontend cukup memakai fetch relatif ke <code>/admin</code>.</li><li>Semua form sensitif harus menghindari logging payload di console.</li><li>Production wajib melalui HTTPS agar cookie/session dan form rahasia tidak lewat plaintext.</li></ul>
+<h2>12. Acceptance Criteria</h2>
+<ul><li>Admin bisa login dan diarahkan ke dashboard.</li><li>Dashboard menampilkan status sistem, token stats, API key stats, quota, usage, dan alert error bila API gagal.</li><li>Admin bisa membuat, memperbarui, menghapus, regenerate, dan membatasi API key.</li><li>Admin bisa import/update token, sync quota, refresh/revalidate, reset usage, dan test video capability.</li><li>Admin bisa melihat usage log serta cache file, lalu menghapus cache yang tidak diperlukan.</li><li>Settings runtime dapat dibaca dan disimpan tanpa reload manual server.</li><li>Jika session admin invalid, UI redirect ke login.</li></ul></body></html>

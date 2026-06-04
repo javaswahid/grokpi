@@ -1,0 +1,44 @@
+name: grokpi
+
+services:
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8191/', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  grokpi:
+    image: grokpi:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    restart: unless-stopped
+    depends_on:
+      flaresolverr:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      GROKPI_TTS_API_KEY: ${GROKPI_TTS_API_KEY:-}
+      GROKPI_XAI_API_KEY: ${GROKPI_XAI_API_KEY:-}
+      XAI_API_KEY: ${XAI_API_KEY:-}
+      GROKPI_TTS_UPSTREAM_URL: ${GROKPI_TTS_UPSTREAM_URL:-https://api.x.ai/v1/tts}
+      GROKPI_TTS_DEFAULT_LANGUAGE: ${GROKPI_TTS_DEFAULT_LANGUAGE:-id}
+      GROKPI_TTS_DEFAULT_VOICE: ${GROKPI_TTS_DEFAULT_VOICE:-eve}
+      GROKPI_TTS_NARRATOR_VOICE: ${GROKPI_TTS_NARRATOR_VOICE:-ara}
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - ./data:/app/data
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s

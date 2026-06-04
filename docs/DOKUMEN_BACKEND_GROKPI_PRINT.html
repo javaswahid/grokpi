@@ -1,0 +1,172 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Dokumen Backend Grokpi</title><style>@page{size:A4;margin:18mm 16mm}body{font:13px/1.55 Segoe UI,Arial,sans-serif;color:#17202a}h1{font-size:28px;margin:0 0 20px;color:#0f172a}h2{font-size:18px;margin:26px 0 9px;padding-bottom:5px;border-bottom:1px solid #d8dee9;color:#0f172a}h3{font-size:15px;margin:18px 0 8px}p{margin:0 0 9px}ul,ol{margin:0 0 11px 22px;padding:0}li{margin:3px 0}code{background:#f1f5f9;border-radius:4px;padding:1px 4px;font-family:Cascadia Mono,Consolas,monospace;font-size:12px}pre.code{white-space:pre-wrap;border:1px solid #d8dee9;background:#fbfdff;border-radius:6px;padding:12px;font:11px/1.45 Cascadia Mono,Consolas,monospace;break-inside:avoid}pre.mermaid:before{content:'Mermaid / Flowchart';display:block;font:700 11px Segoe UI,Arial,sans-serif;color:#475569;text-transform:uppercase;margin-bottom:6px}table{width:100%;border-collapse:collapse;margin:12px 0 18px;font-size:12px}th,td{border:1px solid #d6dce7;padding:7px 8px;vertical-align:top}th{background:#eef2f7;text-align:left}</style></head><body><h1>Dokumen Backend Grokpi</h1>
+<h2>1. Ringkasan</h2>
+<p>Backend Grokpi adalah server Go yang menjalankan Admin API, OpenAI-compatible API, token pool manager, usage logging, cache service, dan static frontend serving dalam satu aplikasi. Backend menjadi lapisan gateway antara aplikasi client dan upstream Grok/xAI.</p>
+<p>Backend berada pada folder <code>cmd/</code> dan <code>internal/</code>. Entry point utama ada di <code>cmd/grokpi/main.go</code>, sedangkan domain internal dipisah menjadi <code>httpapi</code>, <code>flow</code>, <code>token</code>, <code>xai</code>, <code>store</code>, <code>config</code>, <code>cache</code>, <code>cfrefresh</code>, dan <code>logging</code>.</p>
+<h2>2. Tujuan Backend</h2>
+<ul><li>Menyediakan endpoint OpenAI-compatible untuk chat, image, video, dan TTS.</li><li>Menyediakan Admin API untuk operasional token, API key, config, usage, dan cache.</li><li>Mengelola token upstream Grok/xAI dalam pool Basic/Super.</li><li>Memilih token yang sehat berdasarkan model, quota, status, cooldown, dan fallback.</li><li>Menjaga API key client, whitelist model, rate limit, dan daily limit.</li><li>Mencatat usage dan status request tanpa membocorkan rahasia.</li><li>Mendukung self-hosting single binary, Docker Compose, SQLite, dan PostgreSQL.</li></ul>
+<h2>3. Struktur Modul</h2>
+<pre class="code "><code>cmd/grokpi/
+  main.go
+
+internal/
+  httpapi/     Routing, middleware, Admin API, /v1 API bridge, static SPA
+  httpapi/openai/
+               OpenAI-compatible models, chat, stream, image/video route, TTS, async video
+  flow/        Orkestrasi chat, image, video, retry, stream events, usage recording
+  token/       Token service, picker, quota, policy, category, refresh, health
+  xai/         Client upstream Grok/xAI, websocket, upload, image/video/chat/TTS adapters
+  store/       GORM models dan repository untuk token, API key, usage, config, video jobs
+  cache/       Local cache service untuk file media
+  config/      TOML config, defaults, runtime hot-reload
+  cfrefresh/   Scheduler dan solver refresh Cloudflare/session bila dibutuhkan
+  logging/     Setup logging</code></pre>
+<h2>4. Arsitektur Backend</h2>
+<pre class="code mermaid"><code>flowchart LR
+    Client[Aplikasi Client] --&gt; V1[/v1 API]
+    Admin[Admin Console] --&gt; AdminAPI[/admin API]
+    V1 --&gt; Auth[APIKeyAuth]
+    AdminAPI --&gt; AppAuth[AppKeyAuth]
+    Auth --&gt; OpenAI[OpenAI Handler]
+    OpenAI --&gt; ChatFlow[Chat/Image/Video/TTS Flow]
+    ChatFlow --&gt; TokenSvc[Token Service]
+    TokenSvc --&gt; Store[(DB Store)]
+    ChatFlow --&gt; XAI[xAI Client]
+    XAI --&gt; Upstream[Grok/xAI Upstream]
+    ChatFlow --&gt; Usage[Usage Recorder]
+    Usage --&gt; Store
+    OpenAI --&gt; Cache[Video Cache]
+    AdminAPI --&gt; Store
+    AdminAPI --&gt; Runtime[Runtime Config]</code></pre>
+<h2>5. Routing Utama</h2>
+<table><thead><tr><th>Route</th><th>Auth</th><th>Fungsi</th></tr></thead><tbody><tr><td><code>GET /health</code></td><td>Tidak</td><td>Health check.</td></tr><tr><td><code>GET /healthz</code></td><td>Tidak</td><td>Health check alias.</td></tr><tr><td><code>GET /api/files/video/{name}</code></td><td>Tidak</td><td>Public serving video cache.</td></tr><tr><td><code>GET /v1/models</code></td><td>API key</td><td>Daftar model yang tersedia.</td></tr><tr><td><code>POST /v1/preflight</code></td><td>API key</td><td>Preflight token/model.</td></tr><tr><td><code>POST /v1/chat/completions</code></td><td>API key</td><td>Chat, tool calling, image, video sync.</td></tr><tr><td><code>POST /v1/video/generations</code></td><td>API key</td><td>Submit async video job.</td></tr><tr><td><code>GET /v1/video/generations/{jobId}</code></td><td>API key</td><td>Polling status video job.</td></tr><tr><td><code>GET /v1/video/generations/{jobId}/result</code></td><td>API key</td><td>Ambil metadata hasil video.</td></tr><tr><td><code>POST /v1/audio/speech</code></td><td>API key</td><td>TTS OpenAI-compatible.</td></tr><tr><td><code>POST /v1/tts</code></td><td>API key</td><td>Native xAI TTS proxy.</td></tr><tr><td><code>POST /admin/login</code></td><td>Tidak</td><td>Login admin memakai app key.</td></tr><tr><td><code>/admin/*</code></td><td>App key/session</td><td>Admin API token, API key, usage, config, cache.</td></tr><tr><td><code>/*</code></td><td>Tidak</td><td>Frontend SPA catch-all.</td></tr></tbody></table>
+<h2>6. OpenAI-Compatible Request Flow</h2>
+<pre class="code mermaid"><code>sequenceDiagram
+    participant Client as Client App
+    participant Middleware as APIKeyAuth
+    participant Handler as OpenAI Handler
+    participant Flow as ChatFlow
+    participant Token as Token Service
+    participant XAI as xAI Client
+    participant DB as Store
+
+    Client-&gt;&gt;Middleware: POST /v1/chat/completions
+    Middleware-&gt;&gt;DB: Get API key, validate status/expiry/limit
+    DB--&gt;&gt;Middleware: API key + whitelist
+    Middleware-&gt;&gt;Handler: request context + api_key_id
+    Handler-&gt;&gt;Handler: Decode dan validate ChatRequest
+    Handler-&gt;&gt;Flow: Complete(req)
+    Flow-&gt;&gt;Token: Get pool for model dan pick token
+    Token-&gt;&gt;DB: Cari token aktif sesuai category/quota
+    DB--&gt;&gt;Token: token aktif
+    Token--&gt;&gt;Flow: token
+    Flow-&gt;&gt;XAI: Kirim request upstream
+    XAI--&gt;&gt;Flow: stream events / result
+    Flow-&gt;&gt;Token: Report success dan consume quota
+    Flow-&gt;&gt;DB: Record usage log
+    Flow--&gt;&gt;Handler: StreamEvent channel
+    Handler--&gt;&gt;Client: JSON completion atau SSE chunks</code></pre>
+<h2>7. Media Routing</h2>
+<p>Backend membedakan request berdasarkan model:</p>
+<table><thead><tr><th>Model/Endpoint</th><th>Flow</th></tr></thead><tbody><tr><td>Chat model <code>grok-*</code></td><td><code>ChatFlow.Complete</code></td></tr><tr><td><code>grok-imagine-1.0</code></td><td>Image generation flow via chat route</td></tr><tr><td><code>grok-imagine-1.0-fast</code></td><td>Image generation dengan default fast config</td></tr><tr><td><code>grok-imagine-1.0-edit</code></td><td>Image edit, wajib ada <code>image_url</code></td></tr><tr><td><code>grok-imagine-1.0-video</code> via chat</td><td>Video sync, response dalam format chat completion</td></tr><tr><td><code>/v1/video/generations</code></td><td>Async video job, polling status/result</td></tr><tr><td><code>/v1/audio/speech</code></td><td>TTS OpenAI-compatible, response binary audio</td></tr><tr><td><code>/v1/tts</code></td><td>Native xAI TTS proxy</td></tr></tbody></table>
+<h2>8. Async Video Flow</h2>
+<pre class="code mermaid"><code>sequenceDiagram
+    participant Client as Client
+    participant API as Video API
+    participant Jobs as VideoJobStore
+    participant Flow as VideoFlow
+    participant Token as Token Service
+    participant Up as Grok/xAI Upstream
+    participant Cache as Cache Service
+
+    Client-&gt;&gt;API: POST /v1/video/generations
+    API-&gt;&gt;Jobs: Create job queued
+    API--&gt;&gt;Client: jobId, status queued
+    API-&gt;&gt;Flow: Run job async
+    Flow-&gt;&gt;Token: Pick video-capable token
+    Flow-&gt;&gt;Up: Create image/video post
+    Up--&gt;&gt;Flow: video result
+    Flow-&gt;&gt;Cache: Store/serve video file
+    Flow-&gt;&gt;Jobs: Update completed + videoUrl
+    Client-&gt;&gt;API: GET /v1/video/generations/{jobId}
+    API-&gt;&gt;Jobs: Load job by id + api_key_id
+    Jobs--&gt;&gt;API: current status
+    API--&gt;&gt;Client: status/result metadata</code></pre>
+<h2>9. Database Model</h2>
+<table><thead><tr><th>Model</th><th>Fungsi</th></tr></thead><tbody><tr><td><code>APIKey</code></td><td>API key client, status, whitelist model, rate limit, daily limit, usage counter, expiry.</td></tr><tr><td><code>Token</code></td><td>Token upstream, pool, status, quota chat/image/video, cooldown, refresh metadata, priority, video capability.</td></tr><tr><td><code>UsageLog</code></td><td>Audit penggunaan per request: token, API key, model, endpoint, status, latency, token count.</td></tr><tr><td><code>VideoGenerationJob</code></td><td>Lifecycle job video async, job id, request metadata, status, video URL, error, timestamps.</td></tr><tr><td><code>ConfigEntry</code></td><td>Runtime config key-value yang dapat dikelola dari Admin Console.</td></tr></tbody></table>
+<pre class="code mermaid"><code>erDiagram
+    APIKey ||--o{ UsageLog : records
+    Token ||--o{ UsageLog : consumed_by
+    APIKey ||--o{ VideoGenerationJob : submits
+
+    APIKey {
+        uint id PK
+        string key UK
+        string name
+        string status
+        text model_whitelist
+        int rate_limit
+        int daily_limit
+        int daily_used
+        int total_used
+        datetime expires_at
+    }
+
+    Token {
+        uint id PK
+        string token UK
+        string pool
+        string status
+        string quota_mode
+        int chat_quota
+        int image_quota
+        int video_quota
+        datetime cool_until
+        int priority
+        bool upstream_video_capable
+    }
+
+    UsageLog {
+        uint id PK
+        uint token_id FK
+        uint api_key_id FK
+        string model
+        string endpoint
+        int status
+        int duration_ms
+        int tokens_input
+        int tokens_output
+        datetime created_at
+    }
+
+    VideoGenerationJob {
+        string job_id PK
+        uint api_key_id FK
+        string model
+        string status
+        string payload_hash
+        string video_url
+        string error_code
+        datetime created_at
+        datetime completed_at
+    }</code></pre>
+<h2>10. Token Pool dan Quota</h2>
+<p>Token dipilih berdasarkan model dan kategori request.</p>
+<table><thead><tr><th>Kategori</th><th>Dipakai Oleh</th></tr></thead><tbody><tr><td>Chat</td><td>Chat completion dan reasoning.</td></tr><tr><td>Image</td><td>Image generate/edit.</td></tr><tr><td>Video</td><td>Video sync/async.</td></tr></tbody></table>
+<p>Aturan utama:</p>
+<ul><li>Model dipetakan ke pool Basic/Super melalui konfigurasi token.</li><li>Jika model tersedia di dua pool, <code>preferred_pool</code> menjadi prioritas.</li><li>Token dengan status tidak sehat tidak boleh dipilih.</li><li>Quota dikonsumsi hanya pada success.</li><li>Error 401/403 token-level menandai token expired/invalid.</li><li>Rate limit/cooling menurunkan ketersediaan token sementara.</li><li>Retry dibatasi oleh <code>MaxTokens</code>, <code>PerTokenRetries</code>, backoff, dan retry budget.</li></ul>
+<h2>11. Admin API Responsibilities</h2>
+<table><thead><tr><th>Area</th><th>Responsibility</th></tr></thead><tbody><tr><td>Auth</td><td>Login, verify, logout, cookie/session admin.</td></tr><tr><td>System</td><td>Status sistem, uptime, version, summary token/API key.</td></tr><tr><td>Config</td><td>Read/update config runtime dari database/config provider.</td></tr><tr><td>Token</td><td>CRUD token, batch import/export, replace, reset usage, refresh, revalidate, sync quota.</td></tr><tr><td>API Key</td><td>CRUD API key, regenerate, stats, whitelist, limits.</td></tr><tr><td>Usage</td><td>Usage stats dan request logs.</td></tr><tr><td>Cache</td><td>Stats, list, serve, delete, clear cache.</td></tr></tbody></table>
+<h2>12. Security Backend</h2>
+<ul><li><code>/v1/*</code> wajib memakai <code>Authorization: Bearer &lt;API_KEY&gt;</code>.</li><li><code>/admin/*</code> selain login wajib memakai admin auth/session.</li><li>API key list/detail wajib masked; full key hanya muncul saat create/regenerate.</li><li>Upstream token tidak boleh ditulis utuh ke log atau response.</li><li>Middleware security headers, request timeout, dan body size limit aktif secara global.</li><li>Health endpoint tanpa auth hanya boleh mengembalikan status non-rahasia.</li><li>Production wajib di belakang HTTPS reverse proxy.</li></ul>
+<h2>13. Observability dan Error Handling</h2>
+<ul><li>Setiap request sukses dicatat ke <code>usage_logs</code>.</li><li>Error response memakai shape JSON stabil dengan <code>error.type</code>, <code>error.code</code>, dan message.</li><li>Stream response mengirim SSE chunk dan menutup dengan <code>[DONE]</code>.</li><li>Video async menyimpan error code/message di job record.</li><li>Token error mengubah status token agar admin dapat audit dari UI.</li><li>Request ID middleware aktif untuk membantu tracing log.</li></ul>
+<h2>14. Deployment Backend</h2>
+<p>Requirement minimum:</p>
+<ul><li>Linux server/VPS, Ubuntu 22.04+ atau Debian 12.</li><li>Docker dan Docker Compose.</li><li>Go 1.24+ dan Node.js 20+ untuk build lokal.</li><li>Minimal 2 vCPU / 2 GB RAM untuk penggunaan ringan.</li><li>Port 8080 atau reverse proxy ke 80/443.</li></ul>
+<p>Alur deploy ringkas:</p>
+<pre class="code "><code>cp config.defaults.toml config.toml
+make build
+docker compose up -d --build
+curl -s http://127.0.0.1:8080/health</code></pre>
+<h2>15. Acceptance Criteria</h2>
+<ul><li><code>/health</code> dan <code>/healthz</code> mengembalikan status ok.</li><li><code>/v1/models</code> hanya mengembalikan model yang tersedia dan diizinkan API key.</li><li><code>/v1/chat/completions</code> mendukung JSON non-stream dan SSE stream.</li><li>Image, image edit, video sync, async video, dan TTS berjalan sesuai model/endpoint.</li><li>API key auth menolak key invalid, inactive, expired, rate limited, atau daily limit exhausted.</li><li>Token pool mengonsumsi quota sesuai kategori dan mencatat usage pada success.</li><li>Admin API dapat mengelola token, API key, config, usage, dan cache.</li><li>Video async hanya dapat diakses oleh API key pemilik job.</li><li>Build produksi dapat menjalankan backend dan frontend embedded dalam satu service.</li></ul></body></html>

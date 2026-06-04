@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grok + Veo Token Extractor</title>
+  <style>
+    :root {
+      --bg: #081121;
+      --panel: rgba(11, 22, 40, 0.96);
+      --panel-strong: #13233e;
+      --border: rgba(148, 163, 184, 0.16);
+      --text: #e6eef8;
+      --muted: #9db0cf;
+      --grok-a: #22d3ee;
+      --grok-b: #14b8a6;
+      --veo-a: #8b5cf6;
+      --veo-b: #6d28d9;
+      --ok: #22c55e;
+      --err: #fb7185;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 450px;
+      margin: 0;
+      color: var(--text);
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(34, 211, 238, 0.18), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.16), transparent 26%),
+        linear-gradient(180deg, #081121 0%, #050b15 100%);
+    }
+
+    .shell {
+      padding: 18px;
+    }
+
+    .panel {
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(19, 35, 62, 0.96), rgba(8, 17, 33, 0.98));
+      box-shadow: 0 22px 44px rgba(0, 0, 0, 0.35);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .tabbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .tab-btn {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(19, 35, 62, 0.88);
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: transform 120ms ease, background 120ms ease, color 120ms ease, border-color 120ms ease;
+    }
+
+    .tab-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .tab-btn.active[data-kind="grok"] {
+      color: #06211d;
+      border-color: rgba(34, 211, 238, 0.45);
+      background: linear-gradient(135deg, var(--grok-a), var(--grok-b));
+    }
+
+    .tab-btn.active[data-kind="veo"] {
+      color: #f5f3ff;
+      border-color: rgba(139, 92, 246, 0.45);
+      background: linear-gradient(135deg, var(--veo-a), var(--veo-b));
+    }
+
+    .status {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(7, 12, 22, 0.78);
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .status.ok {
+      color: #d1fae5;
+      border-color: rgba(34, 197, 94, 0.35);
+      background: rgba(20, 83, 45, 0.24);
+    }
+
+    .status.error {
+      color: #ffe4e6;
+      border-color: rgba(251, 113, 133, 0.35);
+      background: rgba(136, 19, 55, 0.24);
+    }
+
+    .result {
+      margin-top: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .card {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(6, 13, 24, 0.84);
+    }
+
+    .label {
+      margin: 0 0 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .value {
+      margin: 0 0 12px;
+      min-height: 64px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      background: rgba(13, 24, 42, 0.9);
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .actions {
+      margin-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    button.action {
+      width: 100%;
+      border: 0;
+      border-radius: 14px;
+      padding: 13px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 120ms ease, opacity 120ms ease;
+    }
+
+    button.action:hover {
+      transform: translateY(-1px);
+    }
+
+    button.action:disabled {
+      opacity: 0.55;
+      cursor: default;
+      transform: none;
+    }
+
+    .action.grok {
+      color: #06211d;
+      background: linear-gradient(135deg, var(--grok-a), var(--grok-b));
+    }
+
+    .action.veo {
+      color: #f5f3ff;
+      background: linear-gradient(135deg, var(--veo-a), var(--veo-b));
+    }
+
+    .action.ghost {
+      color: var(--text);
+      background: var(--panel-strong);
+      border: 1px solid var(--border);
+    }
+
+    .hint {
+      margin-top: 14px;
+      font-size: 12px;
+      line-height: 1.45;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    a {
+      color: inherit;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="panel">
+      <p class="eyebrow">Chrome Extension v1.3</p>
+      <h1>Grok + Veo Token Extractor</h1>
+      <p class="subtitle">
+        Ambil token Grok dari <strong>grok.com</strong> atau <strong>grok.x.ai</strong>, lalu ambil
+        token Veo dari <strong>gemini.google.com</strong> dalam popup yang sama.
+      </p>
+
+      <div class="tabbar">
+        <button id="tabGrok" class="tab-btn active" data-kind="grok" type="button">Grok Token</button>
+        <button id="tabVeo" class="tab-btn" data-kind="veo" type="button">Veo Token</button>
+      </div>
+
+      <div id="status" class="status">Pilih token yang ingin diambil.</div>
+
+      <div id="result" class="result"></div>
+
+      <div class="actions">
+        <button id="manualBtn" class="action grok" type="button">Ambil token manual</button>
+      </div>
+
+      <p class="hint">
+        Shortcut tersedia di Chrome Commands: <strong>Ctrl+Shift+G</strong>. Jika data belum muncul,
+        pastikan akun sudah login di halaman target lalu refresh sekali.
+      </p>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

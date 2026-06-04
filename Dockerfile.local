@@ -1,0 +1,23 @@
+FROM debian:bookworm-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates tzdata curl && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -u 1000 grokpi
+WORKDIR /app
+
+COPY bin/grokpi /usr/local/bin/grokpi
+COPY config.defaults.toml /app/config.toml
+
+RUN chmod +x /usr/local/bin/grokpi && \
+    mkdir -p /app/data /app/logs && \
+    chown -R grokpi:grokpi /app
+
+USER grokpi
+
+VOLUME ["/app/data", "/app/logs"]
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/bin/grokpi"]
+CMD ["-config", "/app/config.toml"]

@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <title>PRD Grokpi</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #17202a;
+      font: 13px/1.55 "Segoe UI", Arial, sans-serif;
+      background: #fff;
+    }
+    h1 {
+      margin: 0 0 22px;
+      font-size: 28px;
+      line-height: 1.2;
+      color: #0f172a;
+    }
+    h2 {
+      margin: 28px 0 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #d8dee9;
+      font-size: 18px;
+      color: #0f172a;
+      break-after: avoid;
+    }
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 15px;
+      color: #111827;
+    }
+    p { margin: 0 0 9px; }
+    ul, ol { margin: 0 0 10px 22px; padding: 0; }
+    li { margin: 3px 0; }
+    code {
+      padding: 1px 4px;
+      border-radius: 4px;
+      background: #f1f5f9;
+      color: #0f172a;
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #d6dce7;
+      padding: 7px 8px;
+      vertical-align: top;
+    }
+    th {
+      background: #eef2f7;
+      text-align: left;
+      color: #111827;
+    }
+    .subtitle {
+      margin: -14px 0 22px;
+      color: #526071;
+      font-size: 12px;
+    }
+    .diagram {
+      margin: 14px 0 20px;
+      padding: 12px;
+      border: 1px solid #d8dee9;
+      border-radius: 6px;
+      background: #fbfdff;
+      break-inside: avoid;
+    }
+    .diagram-title {
+      margin: 0 0 8px;
+      color: #475569;
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .node { fill: #ffffff; stroke: #486581; stroke-width: 1.5; }
+    .node-soft { fill: #edf6ff; stroke: #3b82f6; stroke-width: 1.5; }
+    .node-warn { fill: #fff7ed; stroke: #f97316; stroke-width: 1.5; }
+    .node-store { fill: #f8fafc; stroke: #64748b; stroke-width: 1.5; }
+    .line { stroke: #526071; stroke-width: 1.4; fill: none; marker-end: url(#arrow); }
+    .dash { stroke-dasharray: 5 4; }
+    .txt { font: 12px "Segoe UI", Arial, sans-serif; fill: #17202a; text-anchor: middle; dominant-baseline: middle; }
+    .small { font-size: 10.5px; fill: #475569; }
+    .lifeline { stroke: #94a3b8; stroke-width: 1; stroke-dasharray: 4 4; }
+    .msg { stroke: #334155; stroke-width: 1.2; fill: none; marker-end: url(#arrow); }
+    .db-table { fill: #fff; stroke: #475569; stroke-width: 1.2; }
+    .db-head { fill: #e2e8f0; }
+    .page-break { break-before: page; }
+  </style>
+</head>
+<body>
+  <h1>PRD - Project Requirements Document</h1>
+  <p class="subtitle">Grokpi - OpenAI-compatible gateway untuk Grok/xAI, Admin Console, token pool, API key, usage, cache, image, video, dan TTS.</p>
+
+  <h2>1. Overview</h2>
+  <p>Grokpi adalah gateway AI self-hosted yang menyediakan API kompatibel OpenAI untuk workload Grok/xAI: chat/LLM, text-to-image, image edit, text-to-video, image-to-video, dan text-to-speech. Sistem ini menjadi satu pintu bagi aplikasi MASJAVAS atau client lain agar tidak perlu langsung mengelola token upstream, retry, quota, cache media, atau perbedaan format response dari provider.</p>
+  <p>Masalah utama yang diselesaikan adalah kebutuhan akses model Grok yang stabil, terukur, dan mudah diintegrasikan melalui endpoint standar seperti <code>/v1/models</code>, <code>/v1/chat/completions</code>, <code>/v1/audio/speech</code>, dan async video generation. Grokpi juga menyediakan Admin Console untuk mengelola token pool, API key, whitelist model, usage log, konfigurasi runtime, dan cache file video.</p>
+  <p>Tujuan utama produk adalah menyediakan platform gateway AI yang ringan untuk self-hosting di VPS/server, aman untuk produksi kecil-menengah, dan tetap nyaman dipakai oleh developer melalui format OpenAI-compatible.</p>
+
+  <h2>2. Requirements</h2>
+  <ul>
+    <li><strong>Aksesibilitas:</strong> API harus dapat diakses melalui HTTP/HTTPS, sementara Admin Console tersedia melalui browser di endpoint aplikasi yang sama.</li>
+    <li><strong>Kompatibilitas API:</strong> Endpoint utama wajib mengikuti pola OpenAI-compatible agar mudah dipakai oleh SDK/client umum.</li>
+    <li><strong>Auth Terpisah:</strong> Admin Console memakai <code>app_key</code>, sedangkan endpoint <code>/v1/*</code> memakai API key per aplikasi/client.</li>
+    <li><strong>Token Pool:</strong> Sistem harus dapat mengelola token upstream Grok/xAI dalam pool Basic dan Super.</li>
+    <li><strong>Quota dan Rate Limit:</strong> API key dan token harus memiliki batas rate limit, daily limit, quota chat/image/video, serta pencatatan penggunaan.</li>
+    <li><strong>Media Generation:</strong> Sistem harus mendukung text-to-image, image edit, video generation sync/async, cache video, dan TTS.</li>
+    <li><strong>Observability:</strong> Admin harus dapat melihat health, status sistem, usage log, quota/token stats, dan cache stats.</li>
+    <li><strong>Deployment:</strong> Sistem harus dapat dijalankan sebagai single Go binary, Docker Compose, SQLite default, dan opsi PostgreSQL.</li>
+    <li><strong>Security:</strong> Rahasia seperti upstream token, API key, cookie, dan <code>config.toml</code> tidak boleh terekspos di log, dokumen publik, atau frontend client.</li>
+  </ul>
+
+  <h2>3. Core Features</h2>
+  <ol>
+    <li><strong>OpenAI-Compatible Gateway:</strong> <code>/v1/models</code>, <code>/v1/chat/completions</code>, SSE stream, chat, reasoning, tool calling, image, dan video sync.</li>
+    <li><strong>Admin Console:</strong> login berbasis <code>app_key</code>, dashboard status, token, quota, usage, health, dan settings runtime.</li>
+    <li><strong>Token Pool Management:</strong> batch import, edit, delete, replace, reset usage, sync quota, refresh, revalidate, fallback token, dan video capability test.</li>
+    <li><strong>API Key Management:</strong> create, list, update, delete, regenerate, whitelist model, rate limit, daily limit, expiry, dan usage tracking.</li>
+    <li><strong>Image, Video, dan TTS:</strong> image generate/edit, video sync/async, image-to-video, dan speech generation OpenAI-style.</li>
+    <li><strong>Async Video Job Manager:</strong> status <code>queued</code>, <code>processing</code>, <code>completed</code>, <code>failed</code>, atau <code>timeout</code>, plus polling dan result endpoint.</li>
+    <li><strong>Usage, Cache, dan File Serving:</strong> usage log, cache stats, delete/clear cache, dan public video serving via <code>/api/files/video/{name}</code>.</li>
+  </ol>
+
+  <h2>4. User Flow</h2>
+  <ol>
+    <li><strong>Setup Admin:</strong> operator deploy Grokpi, mengatur <code>config.toml</code>, lalu login ke Admin Console.</li>
+    <li><strong>Setup Token dan API Key:</strong> admin menambahkan token Basic/Super, sinkron quota, lalu membuat API key client.</li>
+    <li><strong>Integrasi Client:</strong> aplikasi menyimpan base URL dan API key di environment server-side, lalu memanggil <code>GET /v1/models</code>.</li>
+    <li><strong>Request AI:</strong> client mengirim chat, image, video, atau TTS; Grokpi validasi auth, limit, payload, memilih token, dan meneruskan ke upstream.</li>
+    <li><strong>Monitoring:</strong> admin memantau usage, quota, token health, API key usage, cache, dan status video job.</li>
+  </ol>
+
+  <h2>5. Architecture</h2>
+  <div class="diagram">
+    <p class="diagram-title">Mermaid Flowchart - High-Level Architecture</p>
+    <svg viewBox="0 0 920 390" role="img" aria-label="Grokpi high level architecture">
+      <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#526071"/></marker></defs>
+      <rect class="node-soft" x="25" y="70" width="150" height="52" rx="6"/><text class="txt" x="100" y="96">Aplikasi Client</text><text class="txt small" x="100" y="112">SDK/OpenAI-compatible</text>
+      <rect class="node-soft" x="25" y="230" width="150" height="52" rx="6"/><text class="txt" x="100" y="256">Admin Browser</text><text class="txt small" x="100" y="272">App key login</text>
+      <rect class="node" x="230" y="70" width="145" height="52" rx="6"/><text class="txt" x="302" y="96">Grokpi HTTP API</text><text class="txt small" x="302" y="112">/v1/*</text>
+      <rect class="node" x="230" y="230" width="145" height="52" rx="6"/><text class="txt" x="302" y="256">Admin Console</text><text class="txt small" x="302" y="272">Next.js embedded</text>
+      <rect class="node" x="430" y="70" width="145" height="52" rx="6"/><text class="txt" x="502" y="96">API Key Auth</text><text class="txt small" x="502" y="112">rate/whitelist</text>
+      <rect class="node" x="430" y="230" width="145" height="52" rx="6"/><text class="txt" x="502" y="256">Admin API</text><text class="txt small" x="502" y="272">/admin/*</text>
+      <rect class="node-warn" x="635" y="70" width="145" height="52" rx="6"/><text class="txt" x="707" y="96">Token Pool</text><text class="txt small" x="707" y="112">Basic/Super</text>
+      <rect class="node-store" x="635" y="230" width="145" height="52" rx="6"/><text class="txt" x="707" y="256">Database</text><text class="txt small" x="707" y="272">SQLite/PostgreSQL</text>
+      <rect class="node-warn" x="635" y="315" width="145" height="52" rx="6"/><text class="txt" x="707" y="341">Video Cache</text><text class="txt small" x="707" y="357">/api/files/video</text>
+      <rect class="node-soft" x="805" y="70" width="95" height="52" rx="6"/><text class="txt" x="852" y="96">Grok/xAI</text><text class="txt small" x="852" y="112">Upstream</text>
+      <path class="line" d="M175 96 H230"/><path class="line" d="M375 96 H430"/><path class="line" d="M575 96 H635"/><path class="line" d="M780 96 H805"/>
+      <path class="line" d="M175 256 H230"/><path class="line" d="M375 256 H430"/><path class="line" d="M575 256 H635"/>
+      <path class="line dash" d="M502 122 V230"/><path class="line dash" d="M707 122 V230"/><path class="line dash" d="M707 122 V315"/>
+    </svg>
+  </div>
+
+  <div class="diagram">
+    <p class="diagram-title">Mermaid Sequence - Request Chat/Image/Video Sync</p>
+    <svg viewBox="0 0 920 430" role="img" aria-label="Grokpi request sequence">
+      <defs><marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/></marker></defs>
+      <g>
+        <rect class="node-soft" x="30" y="20" width="115" height="36" rx="5"/><text class="txt" x="87" y="38">Client</text>
+        <rect class="node" x="185" y="20" width="115" height="36" rx="5"/><text class="txt" x="242" y="38">/v1 API</text>
+        <rect class="node" x="340" y="20" width="115" height="36" rx="5"/><text class="txt" x="397" y="38">Auth</text>
+        <rect class="node-warn" x="495" y="20" width="115" height="36" rx="5"/><text class="txt" x="552" y="38">Token Pool</text>
+        <rect class="node-soft" x="650" y="20" width="115" height="36" rx="5"/><text class="txt" x="707" y="38">Upstream</text>
+        <rect class="node-store" x="805" y="20" width="95" height="36" rx="5"/><text class="txt" x="852" y="38">DB</text>
+        <line class="lifeline" x1="87" y1="56" x2="87" y2="395"/><line class="lifeline" x1="242" y1="56" x2="242" y2="395"/><line class="lifeline" x1="397" y1="56" x2="397" y2="395"/><line class="lifeline" x1="552" y1="56" x2="552" y2="395"/><line class="lifeline" x1="707" y1="56" x2="707" y2="395"/><line class="lifeline" x1="852" y1="56" x2="852" y2="395"/>
+        <path class="msg" d="M87 90 H242"/><text class="txt small" x="164" y="78">POST /v1/chat/completions</text>
+        <path class="msg" d="M242 130 H397"/><text class="txt small" x="319" y="118">validasi bearer key</text>
+        <path class="msg" d="M397 170 H852"/><text class="txt small" x="624" y="158">cek status, whitelist, limit harian</text>
+        <path class="msg" d="M852 205 H397"/><text class="txt small" x="624" y="193">API key valid</text>
+        <path class="msg" d="M242 245 H552"/><text class="txt small" x="397" y="233">pilih token berdasarkan model/pool/quota</text>
+        <path class="msg" d="M552 285 H707"/><text class="txt small" x="629" y="273">request upstream</text>
+        <path class="msg" d="M707 320 H242"/><text class="txt small" x="474" y="308">response text/image/video/audio</text>
+        <path class="msg" d="M242 355 H852"/><text class="txt small" x="547" y="343">catat usage log + update counter</text>
+        <path class="msg" d="M242 390 H87"/><text class="txt small" x="164" y="378">response OpenAI-compatible</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="diagram">
+    <p class="diagram-title">Mermaid Sequence - Async Video Flow</p>
+    <svg viewBox="0 0 920 360" role="img" aria-label="Grokpi async video sequence">
+      <defs><marker id="arrow3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/></marker></defs>
+      <rect class="node-soft" x="35" y="18" width="120" height="36" rx="5"/><text class="txt" x="95" y="36">Client</text>
+      <rect class="node" x="220" y="18" width="120" height="36" rx="5"/><text class="txt" x="280" y="36">Video API</text>
+      <rect class="node-store" x="405" y="18" width="120" height="36" rx="5"/><text class="txt" x="465" y="36">Job Store</text>
+      <rect class="node-warn" x="590" y="18" width="120" height="36" rx="5"/><text class="txt" x="650" y="36">Video Flow</text>
+      <rect class="node-soft" x="775" y="18" width="120" height="36" rx="5"/><text class="txt" x="835" y="36">Upstream/Cache</text>
+      <line class="lifeline" x1="95" y1="54" x2="95" y2="330"/><line class="lifeline" x1="280" y1="54" x2="280" y2="330"/><line class="lifeline" x1="465" y1="54" x2="465" y2="330"/><line class="lifeline" x1="650" y1="54" x2="650" y2="330"/><line class="lifeline" x1="835" y1="54" x2="835" y2="330"/>
+      <path class="msg" d="M95 88 H280"/><text class="txt small" x="187" y="76">POST /v1/video/generations</text>
+      <path class="msg" d="M280 122 H465"/><text class="txt small" x="372" y="110">create job queued</text>
+      <path class="msg" d="M280 156 H95"/><text class="txt small" x="187" y="144">jobId + queued</text>
+      <path class="msg" d="M465 190 H650"/><text class="txt small" x="557" y="178">execute job</text>
+      <path class="msg" d="M650 224 H835"/><text class="txt small" x="742" y="212">generate + cache result</text>
+      <path class="msg" d="M650 258 H465"/><text class="txt small" x="557" y="246">completed + videoUrl</text>
+      <path class="msg dash" d="M95 300 H280"/><text class="txt small" x="187" y="288">polling status</text>
+      <path class="msg dash" d="M280 328 H95"/><text class="txt small" x="187" y="316">completed/failed/timeout</text>
+    </svg>
+  </div>
+
+  <h2>6. Database Schema</h2>
+  <div class="diagram">
+    <p class="diagram-title">Mermaid ERD - Storage Utama</p>
+    <svg viewBox="0 0 920 590" role="img" aria-label="Grokpi database schema">
+      <defs><marker id="arrow4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#526071"/></marker></defs>
+      <g>
+        <rect class="db-table" x="35" y="35" width="230" height="190" rx="4"/><rect class="db-head" x="35" y="35" width="230" height="30" rx="4"/><text class="txt" x="150" y="51">api_keys</text>
+        <text class="txt small" x="150" y="84">id PK, key UK, name, status</text><text class="txt small" x="150" y="106">model_whitelist, rate_limit</text><text class="txt small" x="150" y="128">daily_limit, daily_used</text><text class="txt small" x="150" y="150">total_used, last_used_at</text><text class="txt small" x="150" y="172">expires_at, created_at</text><text class="txt small" x="150" y="194">updated_at</text>
+
+        <rect class="db-table" x="345" y="35" width="230" height="215" rx="4"/><rect class="db-head" x="345" y="35" width="230" height="30" rx="4"/><text class="txt" x="460" y="51">tokens</text>
+        <text class="txt small" x="460" y="84">id PK, token UK, pool, status</text><text class="txt small" x="460" y="106">quota_mode, chat/image/video_quota</text><text class="txt small" x="460" y="128">fail_count, cool_until, last_used</text><text class="txt small" x="460" y="150">nsfw_enabled, priority</text><text class="txt small" x="460" y="172">refresh_status, token_version</text><text class="txt small" x="460" y="194">upstream_video_capable</text><text class="txt small" x="460" y="216">created_at, updated_at</text>
+
+        <rect class="db-table" x="655" y="35" width="230" height="215" rx="4"/><rect class="db-head" x="655" y="35" width="230" height="30" rx="4"/><text class="txt" x="770" y="51">usage_logs</text>
+        <text class="txt small" x="770" y="84">id PK, token_id FK</text><text class="txt small" x="770" y="106">api_key_id FK, model, endpoint</text><text class="txt small" x="770" y="128">status, duration_ms, ttft_ms</text><text class="txt small" x="770" y="150">cache_tokens</text><text class="txt small" x="770" y="172">tokens_input, tokens_output</text><text class="txt small" x="770" y="194">estimated, created_at</text>
+
+        <rect class="db-table" x="35" y="325" width="265" height="210" rx="4"/><rect class="db-head" x="35" y="325" width="265" height="30" rx="4"/><text class="txt" x="167" y="341">video_generation_jobs</text>
+        <text class="txt small" x="167" y="374">job_id PK, api_key_id FK</text><text class="txt small" x="167" y="396">client_request_id, provider_event_id</text><text class="txt small" x="167" y="418">grokpi_request_id, model, status</text><text class="txt small" x="167" y="440">payload_hash, payload_size</text><text class="txt small" x="167" y="462">video_url, error_code</text><text class="txt small" x="167" y="484">error_message</text><text class="txt small" x="167" y="506">created_at, updated_at, completed_at</text>
+
+        <rect class="db-table" x="515" y="345" width="230" height="120" rx="4"/><rect class="db-head" x="515" y="345" width="230" height="30" rx="4"/><text class="txt" x="630" y="361">config_entries</text>
+        <text class="txt small" x="630" y="394">id PK, key UK</text><text class="txt small" x="630" y="416">value</text><text class="txt small" x="630" y="438">created_at, updated_at</text>
+
+        <path class="line" d="M265 130 H655"/><text class="txt small" x="460" y="119">api_keys 1..n usage_logs</text>
+        <path class="line" d="M575 145 H655"/><text class="txt small" x="615" y="134">tokens 1..n</text>
+        <path class="line" d="M150 225 V325"/><text class="txt small" x="215" y="277">api_keys 1..n jobs</text>
+      </g>
+    </svg>
+  </div>
+
+  <table>
+    <thead><tr><th>Tabel</th><th>Deskripsi</th></tr></thead>
+    <tbody>
+      <tr><td><strong>api_keys</strong></td><td>API key client, status, whitelist model, rate limit, daily limit, usage counter, dan expiry.</td></tr>
+      <tr><td><strong>tokens</strong></td><td>Token upstream Grok/xAI beserta pool, status, quota chat/image/video, cooldown, refresh metadata, dan video capability.</td></tr>
+      <tr><td><strong>usage_logs</strong></td><td>Log request API untuk observability: model, endpoint, status, durasi, token usage, API key, dan token upstream.</td></tr>
+      <tr><td><strong>video_generation_jobs</strong></td><td>Lifecycle job video async: queued/processing/completed/failed/timeout, metadata request, URL hasil, dan error.</td></tr>
+      <tr><td><strong>config_entries</strong></td><td>Konfigurasi runtime yang disimpan di database melalui Admin Console.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>7. Design & Technical Constraints</h2>
+  <ol>
+    <li><strong>High-Level Technology:</strong> backend Go 1.24+, chi, GORM, SQLite default, opsi PostgreSQL; frontend Next.js 15, React 19, TypeScript, TanStack Query; build produksi sebagai single Go binary dengan web app embedded.</li>
+    <li><strong>API Compatibility:</strong> endpoint <code>/v1/*</code> harus mempertahankan response OpenAI-compatible, error code stabil, dan field custom <code>image_config</code>/<code>video_config</code>.</li>
+    <li><strong>Security Rules:</strong> admin auth dan API auth dipisah, API key disamarkan, upstream token tidak bocor, public deployment memakai HTTPS/reverse proxy.</li>
+    <li><strong>Reliability and Quota:</strong> token selection memperhitungkan pool, model availability, quota, status, cooldown, priority, dan fallback.</li>
+    <li><strong>Observability:</strong> setiap request gateway dicatat tanpa rahasia; Admin Console menampilkan sistem, usage, token health, quota, dan cache.</li>
+    <li><strong>Frontend Design:</strong> Admin Console bersifat operasional, padat, mudah discan, dan fokus pada tindakan admin seperti create key, update token, sync quota, clear cache, dan review usage.</li>
+    <li><strong>Operational Constraints:</strong> target ringan 2 vCPU/2 GB RAM, SQLite untuk single-node, PostgreSQL untuk skala lebih besar, backup <code>data/</code> dan <code>config.toml</code>, serta cache video yang mudah dibersihkan.</li>
+  </ol>
+</body>
+</html>

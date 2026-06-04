@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Grok + Veo Token Extractor",
+  "version": "1.3.0",
+  "description": "Ambil SSO Token Grok, x-userid, dan Veo Token (__Secure-1PSID) dengan 1 klik.",
+  "icons": {
+    "128": "icon.png"
+  },
+  "action": {
+    "default_title": "Grok + Veo Token Extractor",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "cookies",
+    "tabs",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://grok.com/*",
+    "https://grok.x.ai/*",
+    "https://gemini.google.com/*",
+    "https://*.google.com/*",
+    "https://google.com/*"
+  ],
+  "commands": {
+    "extract-token": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+G"
+      },
+      "description": "Buka Token Extractor"
+    }
+  }
+}
